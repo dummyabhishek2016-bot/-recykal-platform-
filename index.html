@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
+<title>Recykal · Inventory Intelligence</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{--g:#1a7a3c;--gl:#e8f5ed;--gm:#4caf71;--bg:#f0f4f0;--s:#fff;--s2:#f7f9f7;--b:#e2e8e2;--t:#1a2e1a;--m:#6b8068;--r:#c0392b;--a:#d47c10;--sh:0 2px 12px rgba(26,122,60,.08)}
+html,body{height:100%;background:var(--bg);color:var(--t);font-family:'Inter',system-ui,sans-serif}
+/* AUTH */
+#auth{display:flex;align-items:center;justify-content:center;min-height:100vh;background:linear-gradient(135deg,#0d3320,#1a7a3c 60%,#2ecc71);padding:20px}
+.ac{background:#fff;border-radius:20px;padding:36px;max-width:400px;width:100%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.2)}
+.logo{font-size:30px;font-weight:800;color:var(--g);letter-spacing:-1px;margin-bottom:4px}.logo span{color:var(--gm)}
+.tag{font-size:11px;color:var(--m);font-family:monospace;margin-bottom:24px;display:block}
+.ac h2{font-size:20px;font-weight:700;margin-bottom:8px}
+.ac>p{font-size:13px;color:var(--m);margin-bottom:16px;line-height:1.6}
+.dpill{display:inline-block;background:var(--gl);color:var(--g);font-size:11px;font-weight:600;padding:4px 14px;border-radius:20px;margin-bottom:20px;font-family:monospace}
+.gbtn{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:12px;border:2px solid var(--b);border-radius:10px;background:#fff;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:14px;transition:.2s}
+.gbtn:hover{border-color:var(--g);background:var(--gl)}
+.or{font-size:11px;color:var(--m);margin:10px 0;display:flex;align-items:center;gap:10px}
+.or::before,.or::after{content:'';flex:1;height:1px;background:var(--b)}
+.einp{width:100%;padding:10px 14px;border:1.5px solid var(--b);border-radius:9px;font-size:14px;margin-bottom:8px;outline:none;font-family:inherit;transition:.2s}
+.einp:focus{border-color:var(--g)}
+.sbtn{width:100%;padding:11px;background:var(--g);color:#fff;border:none;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;font-family:inherit;transition:.2s}
+.sbtn:hover{background:#145f2e}
+.aerr{background:#fde8e8;color:var(--r);font-size:12px;padding:8px 12px;border-radius:8px;margin-top:10px;display:none;text-align:left}
+.anote{font-size:11px;color:var(--m);margin-top:14px;line-height:1.6}
+/* APP */
+#app{display:none;height:100vh;flex-direction:column}
+#app.on{display:flex}
+#nav{background:#fff;border-bottom:1px solid var(--b);padding:0 20px;display:flex;align-items:center;height:52px;gap:4px;box-shadow:var(--sh);flex-shrink:0}
+.nlogo{font-size:16px;font-weight:800;color:var(--g);margin-right:16px}.nlogo span{color:var(--gm)}
+.ntab{padding:7px 12px;border-radius:8px;font-size:13px;font-weight:500;color:var(--m);cursor:pointer;transition:.15s;white-space:nowrap}
+.ntab:hover{background:var(--s2);color:var(--t)}.ntab.on{background:var(--gl);color:var(--g);font-weight:600}.ntab.off{opacity:.4;pointer-events:none}
+.nr{margin-left:auto;display:flex;align-items:center;gap:8px}
+.uav{width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,var(--g),var(--gm));display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;color:#fff}
+.uname{font-size:12px;font-weight:600}
+.lout{font-size:12px;color:var(--m);cursor:pointer;padding:4px 8px;border-radius:6px}.lout:hover{color:var(--r);background:#fde8e8}
+#content{flex:1;overflow-y:auto;padding:22px 24px}
+.screen{display:none}.screen.on{display:block}
+.ph{margin-bottom:20px}.ph h1{font-size:21px;font-weight:700;margin-bottom:4px}.ph p{font-size:13px;color:var(--m)}
+.slabel{font-size:10px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;color:var(--m);margin-bottom:10px}
+.btn{display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;border:none;font-family:inherit;transition:.15s}
+.bg{background:var(--g);color:#fff}.bg:hover{background:#145f2e}
+.bo{background:#fff;color:var(--g);border:1.5px solid var(--g)}.bo:hover{background:var(--gl)}
+.bs{padding:6px 13px;font-size:12px}
+/* UPLOAD */
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.chip{display:flex;align-items:center;gap:6px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:600;border:1px solid}
+.chip.ok{background:var(--gl);color:var(--g);border-color:#b8d4c0}.chip.warn{background:#fff8e6;color:var(--a);border-color:#f0d090}
+.cdot{width:7px;height:7px;border-radius:50%}.chip.ok .cdot{background:var(--g)}.chip.warn .cdot{background:var(--a)}
+.uz{border:2px dashed #b8d4c0;border-radius:14px;padding:44px 20px;text-align:center;background:#fff;cursor:pointer;transition:.2s;max-width:500px;margin:0 auto 16px}
+.uz:hover,.uz.drag{border-color:var(--g);background:var(--gl)}
+.uz h3{font-size:14px;font-weight:600;margin:10px 0 5px}.uz p{font-size:12px;color:var(--m)}
+.tcard{background:#fff;border-radius:11px;border:1px solid var(--b);padding:16px;max-width:500px;margin:0 auto}
+.tcard h4{font-size:11px;font-weight:700;color:var(--a);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px}
+.fg{display:grid;grid-template-columns:1fr 1fr;gap:4px}
+.fc{font-size:12px;color:var(--m);display:flex;align-items:center;gap:5px}
+.fc::before{content:'';width:5px;height:5px;border-radius:50%;background:var(--g);flex-shrink:0}
+/* PROC */
+#proc{display:none;position:fixed;inset:0;background:rgba(240,244,240,.93);z-index:300;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+#proc.on{display:flex}
+.spin{width:40px;height:40px;border:3px solid var(--b);border-top-color:var(--g);border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ptitle{font-size:15px;font-weight:600}
+.plist{display:flex;flex-direction:column;gap:5px;max-width:320px;width:100%}
+.pitem{display:flex;align-items:center;gap:8px;font-size:12px;padding:7px 11px;border-radius:7px;background:#fff;border:1px solid var(--b)}
+.pitem.done{color:var(--g);border-color:var(--gl)}.pitem.act{color:var(--t);border-color:var(--g);font-weight:600}.pitem.idle{color:var(--m)}
+.pd{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.pd.done{background:var(--g)}.pd.act{background:var(--a);animation:pulse 1s infinite}.pd.idle{background:var(--b)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+/* INSIGHTS */
+.ibar{background:var(--gl);border:1px solid #b8d4c0;border-radius:9px;padding:9px 14px;margin-bottom:16px;display:flex;align-items:center;gap:10px;font-size:12px;flex-wrap:wrap}
+.ibar .iid{font-family:monospace;color:var(--g);font-weight:700;font-size:13px}
+.ibar .sep{color:#c8d8c8}.ibar .inf{color:var(--m)}
+.krow{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.kpi{background:#fff;border:1px solid var(--b);border-radius:11px;padding:14px;box-shadow:var(--sh)}
+.kv{font-size:22px;font-weight:800;color:var(--g);letter-spacing:-.5px}
+.kl{font-size:11px;color:var(--m);margin-top:2px}.ks{font-size:10px;color:#8fa88c;margin-top:3px;font-family:monospace}
+.crow{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-bottom:16px}
+.cc{background:#fff;border:1px solid var(--b);border-radius:11px;padding:16px;box-shadow:var(--sh)}
+.cc h4{font-size:13px;font-weight:600;margin-bottom:12px}
+canvas{max-height:170px}
+.ain{background:linear-gradient(135deg,#0d3320,#1a5276);border-radius:11px;padding:18px;margin-bottom:16px;color:#fff}
+.aib{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.15);font-size:11px;font-weight:600;padding:3px 10px;border-radius:20px;margin-bottom:10px}
+.ain p{font-size:13px;color:rgba(255,255,255,.85);line-height:1.75}
+.mrow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:16px}
+.mc{background:#fff;border:2px solid var(--b);border-radius:11px;padding:16px;cursor:pointer;text-align:center;transition:.15s}
+.mc:hover{border-color:var(--gm);background:var(--gl)}.mc.on{border-color:var(--g);background:var(--gl)}
+.mc .mi{font-size:26px;margin-bottom:6px}.mc h4{font-size:13px;font-weight:700;margin-bottom:3px}.mc p{font-size:11px;color:var(--m)}
+/* RESULTS */
+.tabs{display:flex;gap:3px;background:var(--s2);border-radius:9px;padding:3px;margin-bottom:16px;width:fit-content;border:1px solid var(--b)}
+.tab{padding:7px 16px;border-radius:7px;font-size:13px;font-weight:500;cursor:pointer;color:var(--m);transition:.15s}
+.tab.on{background:#fff;color:var(--t);font-weight:600;box-shadow:0 1px 4px rgba(0,0,0,.07)}
+.bgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:20px}
+.bc{background:#fff;border:1px solid var(--b);border-radius:11px;padding:14px;box-shadow:var(--sh);transition:.15s}
+.bc:hover{border-color:var(--gm)}.bc.top{border-color:var(--a);background:#fffdf5}
+.btr{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+.bn{font-size:14px;font-weight:700}.bc2{font-size:11px;color:var(--m);margin-top:1px}
+.fb{font-size:12px;font-weight:700;padding:3px 10px;border-radius:20px;font-family:monospace}
+.fh{background:var(--gl);color:var(--g)}.fm{background:#fff8e6;color:var(--a)}
+.bmeta{display:grid;grid-template-columns:1fr 1fr;gap:4px;margin:8px 0}
+.ml{font-size:10px;color:var(--m)}.mv{font-size:12px;font-weight:600}
+.fbw{height:4px;background:var(--b);border-radius:2px;margin:8px 0 6px}
+.fbf{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--g),var(--gm))}
+.pbtn{width:100%;padding:7px;background:var(--gl);color:var(--g);border:1px solid #b8d4c0;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;transition:.15s}
+.pbtn:hover{background:var(--g);color:#fff}
+.lc{background:#fff;border:1px solid var(--b);border-radius:11px;padding:14px;margin-bottom:9px;display:flex;gap:12px;box-shadow:var(--sh)}
+.lc.res{border-color:#f5c0c0;background:#fffafa}
+.lb{width:54px;height:54px;border-radius:9px;background:var(--gl);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--g);flex-shrink:0;font-family:monospace;text-align:center;line-height:1.3}
+.lc.res .lb{background:#fde8e8;color:var(--r)}
+.li h4{font-size:13px;font-weight:700;margin-bottom:3px}
+.lb2{font-size:11px;color:var(--g);font-weight:600;margin-bottom:5px}
+.ld{font-size:12px;color:var(--m);margin-bottom:7px;line-height:1.5}
+.lval{font-size:15px;font-weight:800;font-family:monospace}
+.tag{display:inline-block;font-size:10px;font-weight:600;padding:2px 7px;border-radius:9px;margin-left:7px}
+.tg{background:var(--gl);color:var(--g)}.ta{background:#fff3d6;color:var(--a)}.tr{background:#fde8e8;color:var(--r)}
+.ro{background:#fff;border:1px solid var(--b);border-radius:11px;padding:18px;margin-top:10px}
+.ropt{display:flex;gap:12px;padding:10px 0;border-bottom:1px solid var(--b)}
+.ropt:last-of-type{border-bottom:none}
+.rn{width:26px;height:26px;border-radius:50%;background:var(--gl);color:var(--g);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;flex-shrink:0;margin-top:1px}
+.rt{font-size:13px;font-weight:600;margin-bottom:2px}.rd{font-size:12px;color:var(--m);line-height:1.5}
+/* LOGS */
+.lstats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:16px}
+.ls{background:#fff;border:1px solid var(--b);border-radius:11px;padding:14px;text-align:center;box-shadow:var(--sh)}
+.lsv{font-size:22px;font-weight:800;color:var(--g)}.lsl{font-size:11px;color:var(--m);margin-top:2px}
+.ltable{width:100%;border-collapse:collapse;background:#fff;border-radius:11px;overflow:hidden;box-shadow:var(--sh);font-size:13px}
+.ltable th{background:var(--s2);padding:10px 12px;text-align:left;font-size:10px;font-weight:700;color:var(--m);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--b)}
+.ltable td{padding:10px 12px;border-bottom:1px solid var(--s2);vertical-align:middle}
+.ltable tr:last-child td{border-bottom:none}.ltable tr:hover td{background:var(--s2)}
+.lav{width:24px;height:24px;border-radius:50%;background:linear-gradient(135deg,var(--g),var(--gm));display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:#fff;flex-shrink:0}
+.lch{display:inline-flex;align-items:center;gap:7px}
+.lbg{display:inline-block;font-size:10px;font-weight:600;padding:2px 8px;border-radius:9px}
+.up{background:var(--gl);color:var(--g)}.li2{background:#e8f0fe;color:#1a5276}.bl{background:#fde8e8;color:var(--r)}.rc{background:#fff8e6;color:var(--a)}
+.im{font-family:monospace;font-size:11px;color:var(--m)}
+.ebar{display:flex;gap:8px;margin-bottom:12px;align-items:center}.ebar p{font-size:12px;color:var(--m);flex:1}
+.slbox{background:var(--gl);border:1px solid #b8d4c0;border-radius:9px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.slbox p{font-size:12px;color:var(--g);font-weight:500}.slbox a{font-size:12px;color:#1a5276;font-weight:600;text-decoration:none}
+/* TOAST */
+#toast{position:fixed;bottom:20px;right:20px;background:#1a2e1a;color:#fff;font-size:13px;font-weight:500;padding:11px 16px;border-radius:10px;z-index:400;display:none;box-shadow:0 4px 20px rgba(0,0,0,.2)}
+#toast.on{display:block}
+#finp{display:none}
+@media(max-width:768px){.krow,.lstats{grid-template-columns:1fr 1fr}.crow,.bgrid,.mrow{grid-template-columns:1fr}#content{padding:14px}}
+</style>
+</head>
+<body>
+<div id="auth">
+  <div class="ac">
+    <div class="logo">recy<span>kal</span></div>
+    <span class="tag">// inventory intelligence platform</span>
+    <h2>Welcome back</h2>
+    <p>Sign in with your Recykal work account to access the platform.</p>
+    <div class="dpill">Access applied to Recykal mail IDs</div>
+    <button class="gbtn" onclick="gLogin()">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Continue with Google (@recykal.com)
+    </button>
+    <div class="or">or enter work email</div>
+    <input class="einp" type="email" id="einp" placeholder="yourname@recykal.com" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="sbtn" onclick="doLogin()">Sign in →</button>
+    <div class="aerr" id="aerr"></div>
+    <p class="anote">Access is applied to Recykal mail IDs only. Contact your manager if you need access.</p>
+  </div>
+</div>
+
+<div id="app">
+  <div id="nav">
+    <div class="nlogo">recy<span>kal</span></div>
+    <div class="ntab on" id="nt-upload" onclick="go('upload')">📂 Upload</div>
+    <div class="ntab off" id="nt-insights" onclick="go('insights')">📊 Insights</div>
+    <div class="ntab off" id="nt-results" onclick="go('results')">🎯 Recommendations</div>
+    <div class="ntab" id="nt-logs" onclick="go('logs')">📋 Activity Log</div>
+    <div class="nr">
+      <div class="uav" id="uav">?</div>
+      <span class="uname" id="uname">—</span>
+      <span class="lout" onclick="logout()">Sign out</span>
+    </div>
+  </div>
+  <div id="content">
+    <!-- UPLOAD -->
+    <div class="screen on" id="screen-upload">
+      <div class="ph"><h1>Upload Inventory List</h1><p>Upload your file from any liquidator — AI reads, standardises and analyses it instantly.</p></div>
+      <div class="chips">
+        <div class="chip ok"><div class="cdot"></div>Gemini AI · Ready</div>
+        <div class="chip ok" id="chip-buyers"><div class="cdot"></div>Buyer Sheet · Loading...</div>
+        <div class="chip ok"><div class="cdot"></div>Drive Archive · Linked</div>
+        <div class="chip ok"><div class="cdot"></div>Activity Log · Linked</div>
+      </div>
+      <div class="uz" id="uz" onclick="document.getElementById('finp').click()" ondragover="event.preventDefault();this.classList.add('drag')" ondragleave="this.classList.remove('drag')" ondrop="doDrop(event)">
+        <div style="font-size:40px">📎</div>
+        <h3>Drag and drop your inventory file here</h3>
+        <p>Supports .csv · .xlsx · .xls from any liquidator format</p>
+        <div style="margin:12px 0;font-size:11px;color:var(--m)">— or —</div>
+        <button class="btn bo bs" onclick="event.stopPropagation()">Browse file</button>
+      </div>
+      <div style="text-align:center;margin:10px 0 20px">
+        <button class="btn bg" onclick="runSample()">▶ Run sample inventory</button>
+      </div>
+      <div class="tcard">
+        <h4>📋 12 Standard fields</h4>
+        <div class="fg">
+          <div class="fc">Product Unique ID</div><div class="fc">Category L1</div>
+          <div class="fc">Sub Category L2</div><div class="fc">Sub Category L3</div>
+          <div class="fc">Source Type</div><div class="fc">Brand / Source Name</div>
+          <div class="fc">Location – City</div><div class="fc">State</div>
+          <div class="fc">Grade (D1/D2/D3)</div><div class="fc">Quantity / Units</div>
+          <div class="fc">Purchase Price / Unit</div><div class="fc">Total Purchase Price</div>
+        </div>
+      </div>
+      <input type="file" id="finp" accept=".csv,.xlsx,.xls" onchange="doFile(this)">
+    </div>
+    <!-- INSIGHTS -->
+    <div class="screen" id="screen-insights">
+      <div class="ibar"><span class="iid" id="inv-id">—</span><span class="sep">|</span><span class="inf" id="inv-meta">—</span></div>
+      <div class="slabel">Inventory KPIs</div>
+      <div class="krow">
+        <div class="kpi"><div class="kv" id="kv">—</div><div class="kl">Total purchase value</div><div class="ks" id="ku">—</div></div>
+        <div class="kpi"><div class="kv" id="kt">—</div><div class="kl">Total units</div><div class="ks" id="kc">—</div></div>
+        <div class="kpi"><div class="kv" id="kg">—</div><div class="kl">Grade D1 (premium) stock</div><div class="ks">Highest-value segment</div></div>
+        <div class="kpi"><div class="kv" id="kcat">—</div><div class="kl">Categories</div><div class="ks" id="kbr">—</div></div>
+      </div>
+      <div class="crow">
+        <div class="cc"><h4>Grade breakdown</h4><canvas id="gc"></canvas></div>
+        <div class="cc"><h4>Category mix</h4><canvas id="ccc"></canvas></div>
+      </div>
+      <div class="ain">
+        <div class="aib">🤖 Gemini AI · Smart Notes</div>
+        <p id="ainotes">Analysing your inventory...</p>
+      </div>
+      <div class="slabel">Choose output mode</div>
+      <div class="mrow">
+        <div class="mc on" id="m-lot" onclick="setMode('lot')"><div class="mi">📦</div><h4>Lot-first</h4><p>Design lots then assign best buyers to each</p></div>
+        <div class="mc" id="m-buyer" onclick="setMode('buyer')"><div class="mi">👥</div><h4>Buyer-first</h4><p>Match buyers then build lots around them</p></div>
+      </div>
+      <div style="display:flex;gap:10px">
+        <button class="btn bg" onclick="doRec()">Generate recommendations →</button>
+        <button class="btn bo" onclick="go('upload')">← New upload</button>
+      </div>
+    </div>
+    <!-- RESULTS -->
+    <div class="screen" id="screen-results">
+      <div class="ibar"><span class="iid" id="r-id">—</span><span class="sep">|</span><span class="inf" id="r-mode">—</span></div>
+      <div class="tabs">
+        <div class="tab on" onclick="sTab('buyers',this)">👥 Buyer pitch list</div>
+        <div class="tab" onclick="sTab('lots',this)">📦 Lot design</div>
+        <div class="tab" onclick="sTab('residue',this)">♻️ Residue plan</div>
+      </div>
+      <div id="tab-buyers"><div class="slabel">Top matched buyers — approach in this order</div><div class="bgrid" id="bgrid"></div></div>
+      <div id="tab-lots" style="display:none"><div class="slabel">Recommended lot design</div><div id="lwrap"></div></div>
+      <div id="tab-residue" style="display:none"><div class="slabel">Residue and bundle strategy</div><div id="rwrap"></div></div>
+    </div>
+    <!-- LOGS -->
+    <div class="screen" id="screen-logs">
+      <div class="ph"><h1>Activity Log</h1><p>Every upload, login and recommendation across the full team.</p></div>
+      <div class="slbox"><p>📊 Logs written to your Google Sheet in real time</p><a href="https://docs.google.com/spreadsheets/d/1IOAeHSMswWFfY1Z99ji5HxBhPOUlzTuor_mtZ10TDF4" target="_blank">Open Sheet</a></div>
+      <div class="lstats">
+        <div class="ls"><div class="lsv" id="ls-u">0</div><div class="lsl">Total uploads</div></div>
+        <div class="ls"><div class="lsv" id="ls-p">0</div><div class="lsl">Active users</div></div>
+        <div class="ls"><div class="lsv" id="ls-t">0</div><div class="lsl">Actions today</div></div>
+        <div class="ls"><div class="lsv" id="ls-b">—</div><div class="lsl">Buyers in sheet</div></div>
+      </div>
+      <div class="ebar"><p>All logs stored permanently in your Google Sheet.</p><button class="btn bo bs" onclick="xCSV()">⬇ Export CSV</button></div>
+      <table class="ltable"><thead><tr><th>Time</th><th>User</th><th>Action</th><th>Inventory ID</th><th>Details</th></tr></thead><tbody id="ltbody"></tbody></table>
+    </div>
+  </div>
+</div>
+
+<div id="proc"><div class="spin"></div><div class="ptitle" id="ptitle">Processing...</div><div class="plist" id="plist"></div></div>
+<div id="toast"></div>
+
+
+<script>
+const DOMAIN = 'recykal.com';
+// ── PASTE YOUR APPS SCRIPT WEBHOOK URL BELOW ──
+// See instructions: deploy the Apps Script from Vercel env var APPS_SCRIPT_URL
+// or paste directly: window.SHEET_WEBHOOK = 'https://script.google.com/macros/s/YOUR_ID/exec'
+window.SHEET_WEBHOOK = '';
+// Fetch webhook URL from Vercel env on load
+fetch('/api/config').then(function(r){return r.json();}).then(function(d){
+  if(d&&d.webhookUrl) window.SHEET_WEBHOOK=d.webhookUrl;
+}).catch(function(){});
+const GEMINI_KEY = '';
+const BUYER_SHEET = '11gdnjtl6ecBUFsWWa7w2kwhMBfLVy-j0EukW9CJUjzQ';
+const LOG_SHEET = '1IOAeHSMswWFfY1Z99ji5HxBhPOUlzTuor_mtZ10TDF4';
+
+let user=null, inv=null, buyers=[], mode='lot', logs=[];
+let ic=parseInt(localStorage.getItem('rcy_ic')||'0');
+let gCh=null, cCh=null;
+
+// AUTH
+function gLogin(){const e=prompt('Enter your @'+DOMAIN+' work email:');if(e)tryLogin(e.trim());}
+function doLogin(){const e=document.getElementById('einp').value.trim();if(!e){showErr('Please enter your email.');return;}tryLogin(e);}
+function tryLogin(email){
+  if(!email.toLowerCase().endsWith('@'+DOMAIN)){showErr('Access denied. Only @'+DOMAIN+' accounts allowed.');addLog(email,'Blocked','—','Domain blocked');return;}
+  user={email,name:email.split('@')[0].replace(/\./g,' ').replace(/\b\w/g,function(c){return c.toUpperCase();}),initials:email.substring(0,2).toUpperCase()};
+  document.getElementById('auth').style.display='none';
+  document.getElementById('app').classList.add('on');
+  document.getElementById('uav').textContent=user.initials;
+  document.getElementById('uname').textContent=user.name;
+  addLog(email,'Login','—','Signed in');
+  loadBuyers();
+}
+function showErr(m){var e=document.getElementById('aerr');e.textContent=m;e.style.display='block';setTimeout(function(){e.style.display='none';},4000);}
+function logout(){if(!confirm('Sign out?'))return;user=null;inv=null;document.getElementById('auth').style.display='flex';document.getElementById('app').classList.remove('on');}
+
+// BUYERS
+async function loadBuyers(){
+  try{
+    var r1=await fetchTab('existing');
+    var r2=await fetchTab('onboarding');
+    buyers=r1.concat(r2).filter(function(b){return Object.values(b).some(function(v){return v&&String(v).trim();});});
+    setChip('chip-buyers','ok','Buyer Sheet · '+buyers.length+' buyers loaded');
+    document.getElementById('ls-b').textContent=buyers.length;
+    toast('Buyer sheet loaded: '+buyers.length+' buyers');
+  }catch(e){
+    setChip('chip-buyers','warn','Buyer Sheet · Set sharing to Anyone can view');
+    console.warn('Buyer sheet error:',e);
+  }
+}
+async function fetchTab(tab){
+  var url='https://docs.google.com/spreadsheets/d/'+BUYER_SHEET+'/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(tab)+'&t='+Date.now();
+  var r=await fetch(url);
+  if(!r.ok)throw new Error('Tab '+tab+' returned '+r.status);
+  return csvToObjs(await r.text());
+}
+function setChip(id,type,label){var el=document.getElementById(id);if(el){el.className='chip '+type;el.innerHTML='<div class="cdot"></div>'+label;}}
+
+// FILES
+function doFile(inp){if(inp&&inp.files&&inp.files[0])readFile(inp.files[0]);}
+function doDrop(e){e.preventDefault();document.getElementById('uz').classList.remove('drag');var f=e.dataTransfer&&e.dataTransfer.files[0];if(f)readFile(f);}
+function readFile(file){
+  var n=file.name.toLowerCase();
+  if(n.endsWith('.xlsx')||n.endsWith('.xls')){
+    if(typeof XLSX==='undefined'){toast('Excel reader loading, try again in a moment');return;}
+    var r=new FileReader();
+    r.onload=function(e){
+      try{var wb=XLSX.read(new Uint8Array(e.target.result),{type:'array'});var ws=wb.Sheets[wb.SheetNames[0]];processInventory(XLSX.utils.sheet_to_csv(ws),file.name);}
+      catch(err){toast('Excel read error: '+err.message);}
+    };
+    r.onerror=function(){toast('Could not read file');};
+    r.readAsArrayBuffer(file);
+  }else{
+    var r2=new FileReader();
+    r2.onload=function(e){processInventory(e.target.result,file.name);};
+    r2.onerror=function(){toast('Could not read file');};
+    r2.readAsText(file);
+  }
+}
+function runSample(){
+  processInventory('SR,Category L1,Sub Category L2,Brand/Source Name,Location,State,After PDI - Grade Type,Quantity/Units,Value After Discount / Purchase price,Total Purchase price,Source Type\n1,Large Appliances,Refrigerator,Haier,Hyderabad,Telangana,D1,5,10115,50575,OEM\n2,Large Appliances,Washing Machine,Samsung,Hyderabad,Telangana,D2,8,7500,60000,OEM\n3,Mobile Phones,Smartphones,Redmi,Hyderabad,Telangana,D1,20,3200,64000,OEM\n4,Mobile Phones,Feature Phones,Nokia,Secunderabad,Telangana,D2,15,800,12000,OEM\n5,Large Appliances,Refrigerator,LG,Hyderabad,Telangana,D3,10,4000,40000,OEM\n6,Mobile Phones,Smartphones,Samsung,Hyderabad,Telangana,D1,12,5500,66000,Modern Trade\n7,Small Appliances,Mixer Grinder,Philips,Hyderabad,Telangana,D2,25,1200,30000,OEM\n8,Mobile Phones,Smartphones,Vivo,Secunderabad,Telangana,D3,30,600,18000,OEM','sample_inventory.csv');
+}
+
+// PROCESS
+async function processInventory(csv,filename){
+  var steps=['Reading and parsing file','Standardising columns','Sending to Gemini AI','Matching buyers','Saving to log'];
+  showProc(steps);
+  // Step 0
+  setStep(0,'act');await wait(300);
+  var rows=[];
+  try{rows=csvToObjs(csv).filter(function(r){return Object.values(r).some(function(v){return v&&String(v).trim()&&String(v).trim()!=='nan';});});}
+  catch(err){hideProc();toast('Parse error: '+err.message);return;}
+  if(!rows.length){hideProc();toast('No data rows found in file');return;}
+  setStep(0,'done');
+
+  // Step 1
+  setStep(1,'act');await wait(200);
+  var grades={D1:0,D2:0,D3:0},cats={},totalVal=0,totalUnits=0;
+  var brands=new Set(),cities=new Set(),cityRaw='',stateRaw='';
+  try{
+    var GC=['After PDI - Grade Type','Grade Type - Pre PDI','Grade Type','Grade','grade','Condition','Quality'];
+    var VC=['Value After Discount / Purchase price','Total Purchase price','Total Purchase Price','Total Price','Net Value','Total Amount','Purchase Value','Invoice Value'];
+    var UC=['Value After Discount / Purchase price','Product Price DP','MRP','Purchase Price / Unit','Unit Price','Rate'];
+    var QC=['Quantity/Units','Quantity','Units','Qty','Count','Pieces'];
+    var CC=['Category L1','Category','Product Category','Type'];
+    var BC=['Brand/Source Name','Brand','Source Name','Make'];
+    var LC=['Location','City','Town','Place'];
+    var SC=['State','Region','Province'];
+    function pick(row,exactCols){
+      for(var i=0;i<exactCols.length;i++){
+        var col=exactCols[i];
+        if(row[col]!=null){var v=String(row[col]).replace(/[₹,\s]/g,'').trim();if(v&&v!=='nan'&&v!=='0')return String(row[col]).trim();}
+      }
+      // fuzzy
+      var normCols=exactCols.map(function(c){return c.toLowerCase().replace(/[^a-z0-9]/g,'');});
+      for(var k in row){
+        var kn=k.toLowerCase().replace(/[^a-z0-9]/g,'');
+        if(normCols.some(function(nc){return nc.length>4&&(kn.includes(nc)||nc.includes(kn.substring(0,6)));}) ){
+          var v2=row[k];if(v2!=null&&String(v2).trim()&&String(v2).trim()!=='nan'&&String(v2).replace(/[₹,\s]/g,'').trim()!=='0')return String(v2).trim();
+        }
+      }
+      return '';
+    }
+    function ng(raw){
+      var v=String(raw||'').trim().toUpperCase().replace(/\s+/g,'');
+      if(!v||v==='-'||v==='NA')return 'D3';
+      var B=['D1','BD1','A','GRADEA','GRADE1','P1','PREMIUM','EXCELLENT','NEW','GOOD','WORKING'];
+      var M=['D2','BD2','B','GRADEB','GRADE2','P2','STANDARD','FAIR','USED','AVERAGE'];
+      var L=['D3','BD3','C','GRADEC','GRADE3','SCRAP','POOR','DAMAGED','BROKEN','BAD','DEFECTIVE'];
+      if(B.some(function(x){return v===x||v.endsWith(x)||v.startsWith(x);}))return 'D1';
+      if(M.some(function(x){return v===x||v.endsWith(x)||v.startsWith(x);}))return 'D2';
+      if(L.some(function(x){return v===x||v.endsWith(x)||v.startsWith(x);}))return 'D3';
+      var nm=v.match(/(\d)$/);if(nm){var d=parseInt(nm[1]);return d===1?'D1':d===2?'D2':'D3';}
+      var lm=v.match(/([ABC])$/);if(lm)return lm[1]==='A'?'D1':lm[1]==='B'?'D2':'D3';
+      return 'D3';
+    }
+    function num(v){var p=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(p)?0:p;}
+    rows.forEach(function(r){
+      var g=ng(pick(r,GC));
+      var q=Math.round(num(pick(r,QC)))||1;
+      var val=num(pick(r,VC));
+      if(!val){var u=num(pick(r,UC));if(u)val=u*q;}
+      if(!val&&r['Value After Discount / Purchase price'])val=num(r['Value After Discount / Purchase price'])*q;
+      grades[g]=(grades[g]||0)+q;
+      var cat=pick(r,CC)||'Other';cats[cat]=(cats[cat]||0)+q;
+      totalVal+=val;totalUnits+=q;
+      var br=pick(r,BC);if(br)brands.add(br);
+      var ct=pick(r,LC);if(ct)cities.add(ct);
+      var st=pick(r,SC);if(st&&!stateRaw)stateRaw=st;
+    });
+    cityRaw=Array.from(cities)[0]||'Unknown';
+  }catch(err){console.error('Col error:',err);hideProc();toast('Column error: '+err.message);return;}
+  setStep(1,'done');
+
+  var tot=Math.max((grades.D1||0)+(grades.D2||0)+(grades.D3||0),1);
+  var gA=Math.round((grades.D1||0)/tot*100),gB=Math.round((grades.D2||0)/tot*100),gC=100-gA-gB;
+  ic++;localStorage.setItem('rcy_ic',ic);
+  var invId='INV-'+new Date().getFullYear()+'-'+cityRaw.substring(0,3).toUpperCase()+'-'+String(ic).padStart(4,'0');
+
+  // Step 2 - Gemini
+  setStep(2,'act');await wait(200);
+  var aiNotes='',aiOk=false;
+  try{
+    var prompt='You are an inventory analyst for Recykal, a liquidation platform in India. Write exactly 4 numbered points as smart notes for the field sales team.\n\nInventory: '+filename+' | City: '+cityRaw+' | State: '+stateRaw+'\nTotal: '+totalUnits+' units | Value: Rs '+totalVal.toLocaleString('en-IN')+'\nGrade D1 (premium): '+gA+'% | D2 (mid): '+gB+'% | D3 (low): '+gC+'%\nCategories: '+Object.keys(cats).slice(0,5).join(', ')+'\nBrands: '+Array.from(brands).slice(0,6).join(', ')+'\n\nStart with "1." directly. Each point on new line. Use **bold** for key terms.\n1. Dominant grade and pricing strategy\n2. Best category for buyer demand\n3. Which buyer type to approach first and why\n4. How to handle D3 stock to avoid dead stock';
+    var res=await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt})});
+    if(res.ok){var d=await res.json();var raw=d&&d.text?d.text:'';if(raw){aiNotes=fmtAI(raw);aiOk=true;}}
+    else if(res.status===404&&GEMINI_KEY){
+      var res2=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+GEMINI_KEY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}],generationConfig:{temperature:0.4,maxOutputTokens:400}})});
+      if(res2.ok){var d2=await res2.json();var raw2=d2&&d2.candidates&&d2.candidates[0]&&d2.candidates[0].content&&d2.candidates[0].content.parts&&d2.candidates[0].content.parts[0]?d2.candidates[0].content.parts[0].text:'';if(raw2){aiNotes=fmtAI(raw2);aiOk=true;}}
+    }
+  }catch(e){console.error('Gemini:',e);}
+  if(!aiNotes)aiNotes=fallbackNotes(gA,gB,gC,cats,cityRaw);
+  setStep(2,'done');
+
+  // Step 3
+  setStep(3,'act');await wait(300);
+  var mb=[];
+  try{mb=buyers.length>0?scoreBuyers(buyers,{cats:cats,grades:grades,gA:gA,gB:gB,gC:gC,cityRaw:cityRaw,stateRaw:stateRaw}):dummyBuyers(Object.keys(cats)[0]||'E-Waste',cityRaw);}
+  catch(e){console.error('Score:',e);mb=dummyBuyers(Object.keys(cats)[0]||'E-Waste',cityRaw);}
+  setStep(3,'done');
+
+  // Step 4
+  setStep(4,'act');await wait(200);
+  inv={invId:invId,filename:filename,totalVal:totalVal,totalUnits:totalUnits,grades:grades,gA:gA,gB:gB,gC:gC,cats:cats,brands:Array.from(brands),cities:Array.from(cities),cityRaw:cityRaw,stateRaw:stateRaw,aiNotes:aiNotes,matchedBuyers:mb};
+  addLog(user.email,'Upload',invId,filename+' · '+totalUnits+' units · Rs '+totalVal.toLocaleString('en-IN'));
+  saveFileToDrive(filename, csv);
+  setStep(4,'done');
+  await wait(300);
+  hideProc();
+  drawInsights();
+  document.getElementById('nt-insights').classList.remove('off');
+  go('insights');
+}
+
+// INSIGHTS
+function drawInsights(){
+  var d=inv;
+  document.getElementById('inv-id').textContent=d.invId;
+  document.getElementById('inv-meta').textContent=user.name+' · '+fmt(new Date())+' · Logged';
+  document.getElementById('r-id').textContent=d.invId;
+  document.getElementById('kv').textContent='Rs '+(d.totalVal/100000).toFixed(1)+'L';
+  document.getElementById('ku').textContent=d.totalUnits+' units';
+  document.getElementById('kt').textContent=d.totalUnits;
+  document.getElementById('kc').textContent=d.cities.join(' / ')||'—';
+  document.getElementById('kg').textContent=d.gA+'%';
+  document.getElementById('kcat').textContent=Object.keys(d.cats).length;
+  document.getElementById('kbr').textContent=d.brands.length+' brands';
+  document.getElementById('ainotes').innerHTML=d.aiNotes;
+  if(gCh){gCh.destroy();gCh=null;}if(cCh){cCh.destroy();cCh=null;}
+  gCh=new Chart(document.getElementById('gc'),{type:'doughnut',data:{labels:['D1 Premium','D2 Mid','D3 Low'],datasets:[{data:[d.gA,d.gB,d.gC],backgroundColor:['#1a7a3c','#d4a017','#c0392b'],borderWidth:0,hoverOffset:4}]},options:{plugins:{legend:{position:'bottom',labels:{color:'#6b8068',font:{size:11}}}},cutout:'65%'}});
+  var cl=Object.keys(d.cats),cv=Object.values(d.cats);
+  cCh=new Chart(document.getElementById('ccc'),{type:'bar',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#1a7a3c','#2196f3','#d4a017','#e91e63','#9c27b0'].slice(0,cl.length),borderRadius:6,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b8068'},grid:{display:false}},y:{ticks:{color:'#6b8068'},grid:{color:'#f0f4f0'}}}}});
+}
+function setMode(m){mode=m;document.getElementById('m-lot').classList.toggle('on',m==='lot');document.getElementById('m-buyer').classList.toggle('on',m==='buyer');}
+
+// RECOMMENDATIONS
+async function doRec(){
+  var steps=['Matching buyers','Scoring fit','Designing lots','Building residue plan'];
+  showProc(steps);
+  for(var i=0;i<steps.length;i++){setStep(i,'act');await wait(700);setStep(i,'done');}
+  await wait(300);hideProc();
+  var d=inv,bs=d.matchedBuyers,val=d.totalVal;
+  document.getElementById('bgrid').innerHTML=bs.map(function(b,i){
+    return '<div class="bc'+(i===0?' top':'')+'"><div class="btr"><div><div class="bn">'+(i===0?'⭐ ':'')+b.name+'</div><div class="bc2">'+b.city+', '+b.state+'</div></div><div class="fb '+(b.fit>=75?'fh':'fm')+'">'+b.fit+'%</div></div><div class="bmeta"><div><div class="ml">Wallet</div><div class="mv">'+b.wallet+'</div></div><div><div class="ml">Frequency</div><div class="mv">'+b.freq+'</div></div><div><div class="ml">Categories</div><div class="mv">'+b.cat+'</div></div><div><div class="ml">Grade pref</div><div class="mv">'+b.grade+'</div></div></div><div class="fbw"><div class="fbf" style="width:'+b.fit+'%"></div></div><div style="font-size:10px;color:var(--m);margin-bottom:6px">'+b.reasons+'</div><button class="pbtn">Pitch'+(i===0?' first':'')+' — '+b.name+'</button></div>';
+  }).join('');
+  var lots=buildLots(bs,d);
+  document.getElementById('lwrap').innerHTML='<div style="font-size:12px;color:var(--m);margin-bottom:12px">'+lots.length+' lots · '+lots.reduce(function(s,l){return s+l.units;},0)+' units · Rs '+lots.reduce(function(s,l){return s+l.val;},0).toLocaleString('en-IN')+'</div>'+
+    lots.map(function(l){return '<div class="lc"><div class="lb">'+l.id+'</div><div class="li"><h4>'+l.name+'</h4><div class="lb2">→ '+l.buyer+' ('+l.fit+'% fit)</div><div class="ld">'+l.desc+'</div><div><span class="lval">Rs '+l.val.toLocaleString('en-IN')+'</span><span class="tag '+l.tc+'">'+l.tag+'</span><span style="font-size:11px;color:var(--m);margin-left:7px">'+l.units+' units</span></div></div></div>';}).join('');
+  var rv=Math.round(val*.07),ru=Math.round((d.grades.D3||0)*.6);
+  document.getElementById('rwrap').innerHTML='<div class="lc res"><div class="lb">RES</div><div class="li"><h4>Unallocated Grade D3 Stock</h4><div class="lb2" style="color:var(--r)">'+ru+' units · Rs '+rv.toLocaleString('en-IN')+' at risk</div><div class="ld">Grade D3 units unplaced after primary lot allocation.</div><div><span class="lval">Rs '+rv.toLocaleString('en-IN')+'</span><span class="tag tr">Needs action</span></div></div></div><div class="ro"><div class="slabel">AI suggestions</div><div class="ropt"><div class="rn">1</div><div><div class="rt">Bundle into Lot B at 15% discount</div><div class="rd">Add D3 units to '+(bs[1]&&bs[1].name||'2nd buyer')+'\'s lot. Clears all stock in one deal.</div></div></div><div class="ropt"><div class="rn">2</div><div><div class="rt">Freebie add-on to Lot A</div><div class="rd">Offer to '+(bs[0]&&bs[0].name||'top buyer')+' as goodwill if they take Lot A at full price.</div></div></div><div class="ropt"><div class="rn">3</div><div><div class="rt">Hold and re-list next cycle</div><div class="rd">Flag for next upload — match against newly onboarded buyers.</div></div></div><div style="margin-top:12px;display:flex;gap:8px"><button class="btn bg bs" onclick="toast(\'Option 1 applied\')">Apply Option 1</button><button class="btn bo bs">Export residue report</button></div></div>';
+  document.getElementById('r-mode').textContent=(mode==='lot'?'Lot-first':'Buyer-first')+' · '+lots.length+' lots · '+bs.length+' buyers';
+  addLog(user.email,'Recommendations',inv.invId,mode+' · '+lots.length+' lots · '+bs.length+' buyers');
+  document.getElementById('nt-results').classList.remove('off');
+  go('results');
+}
+
+function buildLots(buyers,invData){
+  var d1=invData.grades.D1||0,d2=invData.grades.D2||0,d3=invData.grades.D3||0;
+  var tv=invData.totalVal,tu=invData.totalUnits,cats=Object.keys(invData.cats),n=buyers.length;
+  return buyers.map(function(b,i){
+    var lbl=String.fromCharCode(65+i),d1a,d2a,d3a,name,tag,tc;
+    if(i===0){d1a=Math.round(d1*.55);d2a=Math.round(d2*.20);d3a=Math.round(d3*.05);name='Premium '+(cats[0]||'E-Waste')+' Lot';tag='Prime';tc='tg';}
+    else if(i===n-1&&n>2){d1a=Math.round(d1*.05);d2a=Math.round(d2*.15);d3a=Math.round(d3*.40);name='Clearance Mix Lot';tag='Clearance';tc='ta';}
+    else{var sh=1/Math.max(n-1,1);d1a=Math.round(d1*.40*sh);d2a=Math.round(d2*.65*sh);d3a=Math.round(d3*.50*sh);name=(cats[i]||cats[0]||'Volume')+' Lot';tag='Volume';tc='ta';}
+    var units=d1a+d2a+d3a,val=tu>0?Math.round((units/tu)*tv):0;
+    var parts=[];if(d1a>0)parts.push('D1:'+d1a+'u');if(d2a>0)parts.push('D2:'+d2a+'u');if(d3a>0)parts.push('D3:'+d3a+'u blended');
+    return{id:'LOT '+lbl,name:name,buyer:b.name,fit:b.fit,desc:parts.join(' + ')+' → '+b.name,val:val,units:units,tc:tc,tag:tag};
+  });
+}
+
+function scoreBuyers(list,ctx){
+  function p(b,keys){for(var i=0;i<keys.length;i++){var v=b[keys[i]];if(v!=null&&String(v).trim()&&String(v).trim()!=='nan')return String(v).trim();}return '';}
+  function ns(s){return String(s||'').toLowerCase().trim();}
+  return list.map(function(b){
+    var score=40,reasons=[];
+    var bCat=ns(p(b,['Category L1','Sub-Category L2','business_category','Category','Preferred Category']));
+    var cs=0;Object.keys(ctx.cats).forEach(function(c){var ic=ns(c);if(bCat&&(bCat.includes(ic)||ic.includes(bCat.split(' ')[0]))){cs=Math.min(cs+15,30);}});
+    score+=cs;if(cs>0)reasons.push('category match');
+    var bg=ns(p(b,['Preferred Grade','Grade','grade']));
+    if((bg.includes('d1')||bg.includes('a')||bg.includes('premium'))&&ctx.gA>20){score+=25;reasons.push('D1 match');}
+    else if((bg.includes('d2')||bg.includes('b')||bg.includes('mid'))&&ctx.gB>20){score+=18;reasons.push('D2 match');}
+    else if((bg.includes('d3')||bg.includes('c')||bg.includes('scrap'))&&ctx.gC>20){score+=10;reasons.push('D3 match');}
+    else if(!bg)score+=8;
+    var bst=ns(p(b,['state','state_name','State Coverage','State','Region']));
+    var bct=ns(p(b,['City','city','Town']));
+    if(bct&&(bct.includes(ns(ctx.cityRaw))||ns(ctx.cityRaw).includes(bct))){score+=20;reasons.push('same city');}
+    else if(bst&&(bst.includes(ns(ctx.stateRaw||''))||ns(ctx.stateRaw||'').includes(bst))){score+=12;reasons.push('same state');}
+    var wr=p(b,['Monthly Wallet Size','Wallet Size','wallet_size','Budget']);
+    var wn=parseFloat(String(wr).replace(/[^0-9.]/g,''))||0;
+    if(wn>=500000)score+=10;else if(wn>=200000)score+=6;else if(wn>=50000)score+=3;
+    return{name:p(b,['Proper business name','business_name','Buyer Name','Name','name','Company','Customer Name'])||'Unknown Buyer',city:p(b,['City','city','Location','Town'])||p(b,['state','State'])||'—',state:p(b,['state','state_name','State','State Coverage'])||'—',cat:p(b,['Category L1','business_category','Sub-Category L2','Category'])||'—',wallet:wr||'—',freq:p(b,['Frequency of Purchase','Frequency','Purchase Frequency','frequency'])||'—',grade:p(b,['Preferred Grade','Grade','grade'])||'—',reasons:reasons.join(' · ')||'general match',fit:Math.min(Math.round(score),99)};
+  }).sort(function(a,b){return b.fit-a.fit;}).slice(0,6);
+}
+function dummyBuyers(cat,city){return[{name:'Suresh Traders',city:city,state:'Telangana',cat:cat+' · Mobiles',wallet:'Rs 4-6L',freq:'Weekly',grade:'D1/D2',reasons:'sample buyer',fit:85},{name:'Nalini Wholesale',city:'Secunderabad',state:'Telangana',cat:'Appliances',wallet:'Rs 2-4L',freq:'Bi-weekly',grade:'D2/D3',reasons:'sample buyer',fit:70},{name:'Raju Liquidators',city:'Vijayawada',state:'AP',cat:'Mobiles',wallet:'Rs 1-3L',freq:'Monthly',grade:'D1',reasons:'sample buyer',fit:58}];}
+
+// LOGS
+function addLog(u,action,invId,details){
+  var entry={time:new Date(),user:u,action:action,invId:invId||'—',details:details||'—'};
+  logs.unshift(entry);
+  // Push to Google Sheet via Apps Script webhook
+  pushLogToSheet(entry);
+}
+
+async function pushLogToSheet(entry){
+  var webhookUrl = window.SHEET_WEBHOOK || '';
+  if(!webhookUrl) return; // webhook not configured yet
+  try{
+    await fetch(webhookUrl, {
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        type:'log',
+        time:entry.time.toISOString(),
+        user:entry.user,
+        action:entry.action,
+        invId:entry.invId,
+        details:entry.details
+      })
+    });
+  }catch(e){console.warn('Log push failed:',e);}
+}
+
+async function saveFileToDrive(filename, content){
+  var webhookUrl = window.SHEET_WEBHOOK || '';
+  if(!webhookUrl) return;
+  try{
+    await fetch(webhookUrl, {
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        type:'drive',
+        filename:filename,
+        content:btoa(unescape(encodeURIComponent(content.substring(0,50000)))),
+        user:user&&user.email||'unknown',
+        time:new Date().toISOString()
+      })
+    });
+  }catch(e){console.warn('Drive save failed:',e);}
+}
+function drawLogs(){
+  var u=logs.filter(function(l){return l.action==='Upload';}).length;
+  var p2=new Set(logs.map(function(l){return l.user;})).size;
+  var t2=logs.filter(function(l){return l.time.toDateString()===new Date().toDateString();}).length;
+  document.getElementById('ls-u').textContent=u;document.getElementById('ls-p').textContent=p2;document.getElementById('ls-t').textContent=t2;
+  var tb=document.getElementById('ltbody');
+  if(!logs.length){tb.innerHTML='<tr><td colspan="5" style="text-align:center;color:var(--m);padding:28px">No activity yet.</td></tr>';return;}
+  tb.innerHTML=logs.map(function(l){
+    var init=(l.user.split('@')[0]||'?').substring(0,2).toUpperCase();
+    var cls=l.action==='Upload'?'up':l.action==='Login'?'li2':l.action==='Blocked'?'bl':'rc';
+    return '<tr><td style="font-size:11px;color:var(--m);white-space:nowrap">'+fmt(l.time)+'</td><td><div class="lch"><div class="lav">'+init+'</div>'+l.user+'</div></td><td><span class="lbg '+cls+'">'+l.action+'</span></td><td><span class="im">'+l.invId+'</span></td><td style="font-size:12px;color:var(--m)">'+l.details+'</td></tr>';
+  }).join('');
+}
+function xCSV(){var rows=[['Time','User','Action','Inventory ID','Details']].concat(logs.map(function(l){return[fmt(l.time),l.user,l.action,l.invId,l.details];}));var a=document.createElement('a');a.href='data:text/csv;charset=utf-8,'+encodeURIComponent(rows.map(function(r){return r.join(',');}).join('\n'));a.download='recykal_log_'+new Date().toISOString().slice(0,10)+'.csv';a.click();}
+
+// UI
+function go(name){
+  document.querySelectorAll('.screen').forEach(function(s){s.classList.remove('on');});
+  document.getElementById('screen-'+name).classList.add('on');
+  document.querySelectorAll('.ntab').forEach(function(t){t.classList.remove('on');});
+  document.getElementById('nt-'+name).classList.add('on');
+  if(name==='logs')drawLogs();
+}
+function sTab(n,el){['buyers','lots','residue'].forEach(function(t){document.getElementById('tab-'+t).style.display=t===n?'block':'none';});document.querySelectorAll('.tab').forEach(function(t){t.classList.remove('on');});el.classList.add('on');}
+function showProc(steps){document.getElementById('plist').innerHTML=steps.map(function(s,i){return '<div class="pitem idle" id="pi'+i+'"><div class="pd idle" id="pd'+i+'"></div>'+s+'</div>';}).join('');document.getElementById('proc').classList.add('on');}
+function setStep(i,st){var el=document.getElementById('pi'+i),dot=document.getElementById('pd'+i);if(el){el.className='pitem '+st;dot.className='pd '+st;}}
+function hideProc(){document.getElementById('proc').classList.remove('on');}
+function toast(m,ms){var t=document.getElementById('toast');t.textContent=m;t.classList.add('on');setTimeout(function(){t.classList.remove('on');},ms||3000);}
+function wait(ms){return new Promise(function(r){setTimeout(r,ms);});}
+function fmt(d){return d.toLocaleDateString('en-IN',{day:'2-digit',month:'short'})+' '+d.toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'});}
+function fmtAI(raw){return raw.replace(/###[^\n]*/g,'').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n{2,}/g,'<br><br>').replace(/\n/g,'<br>');}
+function fallbackNotes(a,b,c,cats,city){
+  var top=Object.entries(cats).sort(function(x,y){return y[1]-x[1];})[0];var topCat=top?top[0]:'E-Waste';
+  var dom=a>=b&&a>=c?'D1 ('+a+'%)':b>=c?'D2 ('+b+'%)':'D3 ('+c+'%)';
+  return '1. <strong>'+dom+' dominates</strong> — '+(a>b?'premium buyers first, maximum margin opportunity':'volume buyers for faster clearance')+'.<br>2. <strong>'+topCat+'</strong> leads category mix — strong demand in '+(city||'your region')+'.<br>3. Approach <strong>highest-fit buyer first</strong> to lock in D1 stock before negotiating the rest.<br>4. <strong>D3 stock ('+c+'%)</strong> — blend into D2 lots at 10-15% discount or offer as goodwill bundle to prevent dead stock.';
+}
+
+// CSV PARSER
+function csvToObjs(csv){
+  function parseCSV(str){
+    var rows=[],cur=[],inQ=false,field='',i=0;
+    while(i<str.length){
+      var ch=str[i];
+      if(ch==='"'){if(inQ&&str[i+1]==='"'){field+='"';i++;}else{inQ=!inQ;}}
+      else if(ch===','&&!inQ){cur.push(field);field='';}
+      else if((ch==='\n'||ch==='\r')&&!inQ){if(field||cur.length){cur.push(field);rows.push(cur);}field='';cur=[];if(ch==='\r'&&str[i+1]==='\n')i++;}
+      else{field+=ch;}
+      i++;
+    }
+    if(field||cur.length){cur.push(field);rows.push(cur);}
+    return rows.filter(function(r){return r.some(function(v){return v.trim();});});
+  }
+  var rows=parseCSV(csv.trim());
+  if(rows.length<2)return[];
+  var headers=rows[0].map(function(h){return String(h).trim();});
+  return rows.slice(1).map(function(r){var obj={};headers.forEach(function(h,i){obj[h]=(r[i]!=null?String(r[i]).trim():'');});return obj;});
+}
+</script>
+</body>
+</html>
