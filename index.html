@@ -139,6 +139,22 @@ canvas{max-height:170px}
 .ebar{display:flex;gap:8px;margin-bottom:12px;align-items:center}.ebar p{font-size:12px;color:var(--m);flex:1}
 .slbox{background:var(--gl);border:1px solid #b8d4c0;border-radius:9px;padding:10px 14px;margin-bottom:12px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
 .slbox p{font-size:12px;color:var(--g);font-weight:500}.slbox a{font-size:12px;color:#1a5276;font-weight:600;text-decoration:none}
+/* MARGIN SELECTOR */
+.margin-wrap{background:#fff;border:1px solid var(--b);border-radius:11px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--sh)}
+.margin-wrap h4{font-size:12px;font-weight:700;color:var(--t);margin-bottom:4px}
+.margin-sub{font-size:11px;color:var(--m);margin-bottom:12px}
+.margin-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mb{padding:8px 16px;border-radius:8px;font-size:13px;font-weight:600;cursor:pointer;border:1.5px solid var(--b);background:#fff;color:var(--m);font-family:inherit;transition:.15s}
+.mb:hover{border-color:var(--g);color:var(--g);background:var(--gl)}
+.mb.on{border-color:var(--g);color:var(--g);background:var(--gl)}
+.mb-manual{width:100px;padding:8px 12px;border-radius:8px;font-size:13px;font-weight:600;border:1.5px solid var(--b);background:#fff;color:var(--t);font-family:inherit;outline:none;transition:.15s}
+.mb-manual:focus{border-color:var(--g)}
+.margin-result{display:none;margin-top:10px;padding:10px 14px;background:var(--gl);border-radius:8px;font-size:12px;color:var(--g);font-weight:500;border:1px solid #b8d4c0}
+.margin-result.show{display:block}
+/* SALE VALUE BADGE */
+.sale-badge{display:inline-block;background:var(--gl);color:var(--g);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:6px;border:1px solid #b8d4c0}
+/* UPDATED KPI */
+.kpi-sale{font-size:12px;color:var(--g);font-weight:600;margin-top:4px;font-family:monospace}
 /* TOAST */
 #toast{position:fixed;bottom:20px;right:20px;background:#1a2e1a;color:#fff;font-size:13px;font-weight:500;padding:11px 16px;border-radius:10px;z-index:400;display:none;box-shadow:0 4px 20px rgba(0,0,0,.2)}
 #toast.on{display:block}
@@ -217,7 +233,7 @@ canvas{max-height:170px}
       <div class="ibar"><span class="iid" id="inv-id">—</span><span class="sep">|</span><span class="inf" id="inv-meta">—</span></div>
       <div class="slabel">Inventory KPIs</div>
       <div class="krow">
-        <div class="kpi"><div class="kv" id="kv">—</div><div class="kl">Total purchase value</div><div class="ks" id="ku">—</div></div>
+        <div class="kpi"><div class="kv" id="kv">—</div><div class="kl">Total purchase value</div><div class="ks" id="ku">—</div><div class="kpi-sale" id="kv-sale"></div></div>
         <div class="kpi"><div class="kv" id="kt">—</div><div class="kl">Total units</div><div class="ks" id="kc">—</div></div>
         <div class="kpi"><div class="kv" id="kg">—</div><div class="kl">Grade D1 (premium) stock</div><div class="ks">Highest-value segment</div></div>
         <div class="kpi"><div class="kv" id="kcat">—</div><div class="kl">Categories</div><div class="ks" id="kbr">—</div></div>
@@ -230,6 +246,20 @@ canvas{max-height:170px}
         <div class="aib">🤖 Gemini AI · Smart Notes</div>
         <p id="ainotes">Analysing your inventory...</p>
       </div>
+      <div class="slabel">Set margin &amp; sale price</div>
+      <div class="margin-wrap">
+        <h4>Margin percentage</h4>
+        <div class="margin-sub">Select or enter your target margin. An additional 0.8% is applied automatically.</div>
+        <div class="margin-btns">
+          <button class="mb" onclick="setMargin(1,this)">1%</button>
+          <button class="mb" onclick="setMargin(3,this)">3%</button>
+          <button class="mb" onclick="setMargin(5,this)">5%</button>
+          <button class="mb" onclick="setMargin(10,this)">10%</button>
+          <input class="mb-manual" type="number" id="margin-manual" placeholder="Manual %" min="0" max="100" step="0.1" oninput="setMarginManual(this.value)" onfocus="clearMarginBtns()">
+        </div>
+        <div class="margin-result" id="margin-result"></div>
+      </div>
+
       <div class="slabel">Choose output mode</div>
       <div class="mrow">
         <div class="mc on" id="m-lot" onclick="setMode('lot')"><div class="mi">📦</div><h4>Lot-first</h4><p>Design lots then assign best buyers to each</p></div>
@@ -287,8 +317,47 @@ const BUYER_SHEET = '11gdnjtl6ecBUFsWWa7w2kwhMBfLVy-j0EukW9CJUjzQ';
 const LOG_SHEET = '1IOAeHSMswWFfY1Z99ji5HxBhPOUlzTuor_mtZ10TDF4';
 
 let user=null, inv=null, buyers=[], mode='lot', logs=[];
+let marginPct = 0;      // user-selected margin %
+let effectiveMargin = 0; // margin + 0.8%
 let ic=parseInt(localStorage.getItem('rcy_ic')||'0');
 let gCh=null, cCh=null;
+
+// MARGIN
+function setMargin(pct, btn){
+  marginPct = pct;
+  effectiveMargin = pct + 0.8;
+  clearMarginBtns();
+  if(btn) btn.classList.add('on');
+  document.getElementById('margin-manual').value = '';
+  showMarginResult();
+}
+function setMarginManual(val){
+  var v = parseFloat(val);
+  if(isNaN(v)||v<0){marginPct=0;effectiveMargin=0;document.getElementById('margin-result').classList.remove('show');return;}
+  marginPct = v;
+  effectiveMargin = v + 0.8;
+  clearMarginBtns();
+  showMarginResult();
+}
+function clearMarginBtns(){
+  document.querySelectorAll('.mb').forEach(function(b){b.classList.remove('on');});
+}
+function showMarginResult(){
+  var el = document.getElementById('margin-result');
+  if(!effectiveMargin){el.classList.remove('show');return;}
+  var saleMultiplier = 1 + effectiveMargin/100;
+  el.innerHTML = 'Effective margin: <b>'+effectiveMargin.toFixed(2)+'%</b> ('+marginPct+'% + 0.8% auto) &nbsp;|&nbsp; Sale price = Purchase price × <b>'+saleMultiplier.toFixed(4)+'</b>';
+  el.classList.add('show');
+}
+function calcSale(purchasePrice){
+  if(!effectiveMargin) return purchasePrice; // no margin set → use purchase price
+  return purchasePrice * (1 + effectiveMargin/100);
+}
+function fmtINR(val){
+  if(val>=100000) return 'Rs '+(val/100000).toFixed(2)+'L';
+  if(val>=1000) return 'Rs '+(val/1000).toFixed(1)+'K';
+  return 'Rs '+Math.round(val);
+}
 
 // AUTH
 function gLogin(){const e=prompt('Enter your @'+DOMAIN+' work email:');if(e)tryLogin(e.trim());}
@@ -433,7 +502,8 @@ async function processInventory(csv,filename){
   setStep(2,'act');await wait(200);
   var aiNotes='',aiOk=false;
   try{
-    var prompt='You are an inventory analyst for Recykal, a liquidation platform in India. Write exactly 4 numbered points as smart notes for the field sales team.\n\nInventory: '+filename+' | City: '+cityRaw+' | State: '+stateRaw+'\nTotal: '+totalUnits+' units | Value: Rs '+totalVal.toLocaleString('en-IN')+'\nGrade D1 (premium): '+gA+'% | D2 (mid): '+gB+'% | D3 (low): '+gC+'%\nCategories: '+Object.keys(cats).slice(0,5).join(', ')+'\nBrands: '+Array.from(brands).slice(0,6).join(', ')+'\n\nStart with "1." directly. Each point on new line. Use **bold** for key terms.\n1. Dominant grade and pricing strategy\n2. Best category for buyer demand\n3. Which buyer type to approach first and why\n4. How to handle D3 stock to avoid dead stock';
+    var saleDisplay = effectiveMargin ? ' | Sale value: Rs '+(calcSale(totalVal)).toLocaleString('en-IN')+' ('+effectiveMargin.toFixed(1)+'% margin)' : '';
+    var prompt='You are an inventory analyst for Recykal, a liquidation platform in India. Write exactly 4 numbered points as smart notes for the field sales team.\n\nInventory: '+filename+' | City: '+cityRaw+' | State: '+stateRaw+'\nTotal: '+totalUnits+' units | Purchase value: Rs '+totalVal.toLocaleString('en-IN')+saleDisplay+'\nGrade D1 (premium): '+gA+'% | D2 (mid): '+gB+'% | D3 (low): '+gC+'%\nCategories: '+Object.keys(cats).slice(0,5).join(', ')+'\nBrands: '+Array.from(brands).slice(0,6).join(', ')+'\n\nStart with "1." directly. Each point on new line. Use **bold** for key terms.\n1. Dominant grade and pricing strategy\n2. Best category for buyer demand\n3. Which buyer type to approach first and why\n4. How to handle D3 stock to avoid dead stock';
     var res=await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt})});
     if(res.ok){var d=await res.json();var raw=d&&d.text?d.text:'';if(raw){aiNotes=fmtAI(raw);aiOk=true;}}
     else if(res.status===404&&GEMINI_KEY){
@@ -453,7 +523,15 @@ async function processInventory(csv,filename){
 
   // Step 4
   setStep(4,'act');await wait(200);
-  inv={invId:invId,filename:filename,totalVal:totalVal,totalUnits:totalUnits,grades:grades,gA:gA,gB:gB,gC:gC,cats:cats,brands:Array.from(brands),cities:Array.from(cities),cityRaw:cityRaw,stateRaw:stateRaw,aiNotes:aiNotes,matchedBuyers:mb};
+  var totalSaleVal = calcSale(totalVal);
+  inv={invId:invId,filename:filename,
+       totalVal:totalVal,totalSaleVal:totalSaleVal,
+       totalUnits:totalUnits,grades:grades,gA:gA,gB:gB,gC:gC,
+       cats:cats,brands:Array.from(brands),cities:Array.from(cities),
+       cityRaw:cityRaw,stateRaw:stateRaw,
+       marginPct:marginPct,effectiveMargin:effectiveMargin,
+       rows:rows,
+       aiNotes:aiNotes,matchedBuyers:mb};
   addLog(user.email,'Upload',invId,filename+' · '+totalUnits+' units · Rs '+totalVal.toLocaleString('en-IN'));
   saveFileToDrive(filename, csv);
   setStep(4,'done');
@@ -470,7 +548,15 @@ function drawInsights(){
   document.getElementById('inv-id').textContent=d.invId;
   document.getElementById('inv-meta').textContent=user.name+' · '+fmt(new Date())+' · Logged';
   document.getElementById('r-id').textContent=d.invId;
-  document.getElementById('kv').textContent='Rs '+(d.totalVal/100000).toFixed(1)+'L';
+  document.getElementById('kv').textContent='Rs '+(d.totalVal/100000).toFixed(2)+'L';
+  var saleEl = document.getElementById('kv-sale');
+  if(saleEl){
+    if(d.effectiveMargin){
+      saleEl.textContent='Sale value: Rs '+(d.totalSaleVal/100000).toFixed(2)+'L ('+d.effectiveMargin.toFixed(1)+'% margin)';
+    } else {
+      saleEl.textContent='Set margin above to see sale value';
+    }
+  }
   document.getElementById('ku').textContent=d.totalUnits+' units';
   document.getElementById('kt').textContent=d.totalUnits;
   document.getElementById('kc').textContent=d.cities.join(' / ')||'—';
@@ -496,9 +582,13 @@ async function doRec(){
     return '<div class="bc'+(i===0?' top':'')+'"><div class="btr"><div><div class="bn">'+(i===0?'⭐ ':'')+b.name+'</div><div class="bc2">'+b.city+', '+b.state+'</div></div><div class="fb '+(b.fit>=75?'fh':'fm')+'">'+b.fit+'%</div></div><div class="bmeta"><div><div class="ml">Wallet</div><div class="mv">'+b.wallet+'</div></div><div><div class="ml">Frequency</div><div class="mv">'+b.freq+'</div></div><div><div class="ml">Categories</div><div class="mv">'+b.cat+'</div></div><div><div class="ml">Grade pref</div><div class="mv">'+b.grade+'</div></div></div><div class="fbw"><div class="fbf" style="width:'+b.fit+'%"></div></div><div style="font-size:10px;color:var(--m);margin-bottom:6px">'+b.reasons+'</div><button class="pbtn">Pitch'+(i===0?' first':'')+' — '+b.name+'</button></div>';
   }).join('');
   var lots=buildLots(bs,d);
-  document.getElementById('lwrap').innerHTML='<div style="font-size:12px;color:var(--m);margin-bottom:12px">'+lots.length+' lots · '+lots.reduce(function(s,l){return s+l.units;},0)+' units · Rs '+lots.reduce(function(s,l){return s+l.val;},0).toLocaleString('en-IN')+'</div>'+
+  var lotTotalPurch = lots.reduce(function(s,l){return s+l.val;},0);
+  var lotTotalSale = lots.reduce(function(s,l){return s+l.saleVal;},0);
+  var lotSummary = lots.length+' lots · '+lots.reduce(function(s,l){return s+l.units;},0)+' units · Purchase: Rs '+lotTotalPurch.toLocaleString('en-IN');
+  if(inv.effectiveMargin) lotSummary += ' · Sale: Rs '+lotTotalSale.toLocaleString('en-IN')+' ('+inv.effectiveMargin.toFixed(1)+'% margin)';
+  document.getElementById('lwrap').innerHTML='<div style="font-size:12px;color:var(--m);margin-bottom:12px">'+lotSummary+'</div>'+
     lots.map(function(l){return '<div class="lc"><div class="lb">'+l.id+'</div><div class="li"><h4>'+l.name+'</h4><div class="lb2">→ '+l.buyer+' ('+l.fit+'% fit)</div><div class="ld">'+l.desc+'</div><div><span class="lval">Rs '+l.val.toLocaleString('en-IN')+'</span><span class="tag '+l.tc+'">'+l.tag+'</span><span style="font-size:11px;color:var(--m);margin-left:7px">'+l.units+' units</span></div></div></div>';}).join('');
-  var rv=Math.round(val*.07),ru=Math.round((d.grades.D3||0)*.6);
+  var rv=Math.round(val*.07),ru=Math.round((d.grades.D3||0)*.6),rSaleVal=Math.round(calcSale(rv));
   document.getElementById('rwrap').innerHTML='<div class="lc res"><div class="lb">RES</div><div class="li"><h4>Unallocated Grade D3 Stock</h4><div class="lb2" style="color:var(--r)">'+ru+' units · Rs '+rv.toLocaleString('en-IN')+' at risk</div><div class="ld">Grade D3 units unplaced after primary lot allocation.</div><div><span class="lval">Rs '+rv.toLocaleString('en-IN')+'</span><span class="tag tr">Needs action</span></div></div></div><div class="ro"><div class="slabel">AI suggestions</div><div class="ropt"><div class="rn">1</div><div><div class="rt">Bundle into Lot B at 15% discount</div><div class="rd">Add D3 units to '+(bs[1]&&bs[1].name||'2nd buyer')+'\'s lot. Clears all stock in one deal.</div></div></div><div class="ropt"><div class="rn">2</div><div><div class="rt">Freebie add-on to Lot A</div><div class="rd">Offer to '+(bs[0]&&bs[0].name||'top buyer')+' as goodwill if they take Lot A at full price.</div></div></div><div class="ropt"><div class="rn">3</div><div><div class="rt">Hold and re-list next cycle</div><div class="rd">Flag for next upload — match against newly onboarded buyers.</div></div></div><div style="margin-top:12px;display:flex;gap:8px"><button class="btn bg bs" onclick="toast(\'Option 1 applied\')">Apply Option 1</button><button class="btn bo bs">Export residue report</button></div></div>';
   document.getElementById('r-mode').textContent=(mode==='lot'?'Lot-first':'Buyer-first')+' · '+lots.length+' lots · '+bs.length+' buyers';
   addLog(user.email,'Recommendations',inv.invId,mode+' · '+lots.length+' lots · '+bs.length+' buyers');
@@ -516,7 +606,8 @@ function buildLots(buyers,invData){
     else{var sh=1/Math.max(n-1,1);d1a=Math.round(d1*.40*sh);d2a=Math.round(d2*.65*sh);d3a=Math.round(d3*.50*sh);name=(cats[i]||cats[0]||'Volume')+' Lot';tag='Volume';tc='ta';}
     var units=d1a+d2a+d3a,val=tu>0?Math.round((units/tu)*tv):0;
     var parts=[];if(d1a>0)parts.push('D1:'+d1a+'u');if(d2a>0)parts.push('D2:'+d2a+'u');if(d3a>0)parts.push('D3:'+d3a+'u blended');
-    return{id:'LOT '+lbl,name:name,buyer:b.name,fit:b.fit,desc:parts.join(' + ')+' → '+b.name,val:val,units:units,tc:tc,tag:tag};
+    var saleVal=Math.round(calcSale(val));
+    return{id:'LOT '+lbl,name:name,buyer:b.name,fit:b.fit,desc:parts.join(' + ')+' → '+b.name,val:val,saleVal:saleVal,units:units,tc:tc,tag:tag};
   });
 }
 
