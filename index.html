@@ -338,37 +338,36 @@ const LOG_SHEET = '1IOAeHSMswWFfY1Z99ji5HxBhPOUlzTuor_mtZ10TDF4';
 
 let user=null, inv=null, buyers=[], mode='lot', logs=[];
 let marginPct = 8;       // default margin 8%
-let effectiveMargin = 8.8; // default effective margin (8 + 0.8)
+let effectiveMargin = 8.8; // internal effective margin
 let ic=parseInt(localStorage.getItem('rcy_ic')||'0');
 let gCh=null, cCh=null;
 
 // MARGIN
 function setMargin(pct, btn){
   marginPct = pct;
-  effectiveMargin = pct + 0.8;
+  effectiveMargin = pct + 0.8; // internal only — never shown
   clearMarginBtns();
   if(btn) btn.classList.add('on');
   document.getElementById('margin-manual').value = '';
   showMarginResult();
-  updateSaleDisplay(); // live update KPIs and breakdown
+  updateSaleDisplay();
 }
 function setMarginManual(val){
   var v = parseFloat(val);
   if(isNaN(v)||v<0){marginPct=0;effectiveMargin=0;document.getElementById('margin-result').classList.remove('show');updateSaleDisplay();return;}
   marginPct = v;
-  effectiveMargin = v + 0.8;
+  effectiveMargin = v + 0.8; // internal only — never shown
   clearMarginBtns();
   showMarginResult();
-  updateSaleDisplay(); // live update KPIs and breakdown
+  updateSaleDisplay();
 }
 function clearMarginBtns(){
   document.querySelectorAll('.mb').forEach(function(b){b.classList.remove('on');});
 }
 function showMarginResult(){
   var el = document.getElementById('margin-result');
-  if(!effectiveMargin){el.classList.remove('show');return;}
-  var saleMultiplier = 1 + effectiveMargin/100;
-  el.innerHTML = 'Effective margin: <b>'+effectiveMargin.toFixed(2)+'%</b> &nbsp;|&nbsp; Sale price = Purchase price × <b>'+saleMultiplier.toFixed(4)+'</b>';
+  if(!marginPct){el.classList.remove('show');return;}
+  el.innerHTML = 'Margin: <b>'+marginPct+'%</b> &nbsp;|&nbsp; Sale price = Cost price ÷ (1 - '+marginPct+'%)';
   el.classList.add('show');
 }
 function updateSaleDisplay(){
@@ -380,8 +379,8 @@ function updateSaleDisplay(){
   // Update KPI card
   var saleEl = document.getElementById('kv-sale');
   if(saleEl){
-    if(effectiveMargin){
-      saleEl.textContent = 'Sale value: Rs '+(inv.totalSaleVal/100000).toFixed(2)+'L ('+effectiveMargin.toFixed(1)+'% margin)';
+    if(inv.marginPct){
+      saleEl.textContent = 'Sale value: Rs '+(inv.totalSaleVal/100000).toFixed(2)+'L ('+inv.marginPct+'% margin)';
     } else {
       saleEl.textContent = '';
     }
@@ -400,8 +399,9 @@ function updateSaleDisplay(){
   }, 50);
 }
 function calcSale(purchasePrice){
-  if(!effectiveMargin) return purchasePrice; // no margin set → use purchase price
-  return purchasePrice * (1 + effectiveMargin/100);
+  if(!marginPct) return purchasePrice; // no margin set → use purchase price
+  var em = marginPct + 0.8; // effective rate applied internally
+  return purchasePrice / (1 - em/100);
 }
 function fmtINR(val){
   if(val>=100000) return 'Rs '+(val/100000).toFixed(2)+'L';
@@ -477,7 +477,7 @@ function drawBreakdownTable(){
         var u=catData[g].units;
         var pv=catData[g].purchVal;
         var sv=Math.round(calcSale(pv));
-        var margin=effectiveMargin?effectiveMargin.toFixed(1)+'%':'—';
+        var margin=marginPct?marginPct+'%':'—';
         html+='<tr>';
         html+='<td style="color:var(--m);font-size:11px">'+cat+'</td>';
         html+='<td><span class="grade-pip '+gradeColors[g]+'"></span>'+g+'</td>';
@@ -497,7 +497,7 @@ function drawBreakdownTable(){
     html+='<td class="right"><b>'+ct.units.toLocaleString('en-IN')+'</b></td>';
     html+='<td class="right"><b>Rs '+Math.round(ct.purchVal).toLocaleString('en-IN')+'</b></td>';
     html+='<td class="right"><b>Rs '+ctSale.toLocaleString('en-IN')+'</b></td>';
-    html+='<td class="right">'+( effectiveMargin?effectiveMargin.toFixed(1)+'%':'—')+'</td>';
+    html+='<td class="right">'+(marginPct?marginPct+'%':'—')+'</td>';
     html+='</tr>';
   });
 
@@ -508,7 +508,7 @@ function drawBreakdownTable(){
   html+='<td class="right"><b>'+grandUnits.toLocaleString('en-IN')+'</b></td>';
   html+='<td class="right"><b>Rs '+Math.round(grandPurch).toLocaleString('en-IN')+'</b></td>';
   html+='<td class="right"><b>Rs '+grandSale.toLocaleString('en-IN')+'</b></td>';
-  html+='<td class="right">'+(effectiveMargin?effectiveMargin.toFixed(1)+'%':'—')+'</td>';
+  html+='<td class="right">'+(marginPct?marginPct+'%':'—')+'</td>';
   html+='</tr>';
 
   document.getElementById('bk-tbody').innerHTML=html;
@@ -657,7 +657,7 @@ async function processInventory(csv,filename){
   setStep(2,'act');await wait(200);
   var aiNotes='',aiOk=false;
   try{
-    var saleDisplay = effectiveMargin ? ' | Sale value: Rs '+(calcSale(totalVal)).toLocaleString('en-IN')+' ('+effectiveMargin.toFixed(1)+'% margin)' : '';
+    var saleDisplay = marginPct ? ' | Sale value: Rs '+Math.round(calcSale(totalVal)).toLocaleString('en-IN')+' ('+marginPct+'% margin)' : '';
     var prompt='You are an inventory analyst for Recykal, a liquidation platform in India. Write exactly 4 numbered points as smart notes for the field sales team.\n\nInventory: '+filename+' | City: '+cityRaw+' | State: '+stateRaw+'\nTotal: '+totalUnits+' units | Purchase value: Rs '+totalVal.toLocaleString('en-IN')+saleDisplay+'\nGrade D1 (premium): '+gA+'% | D2 (mid): '+gB+'% | D3 (low): '+gC+'%\nCategories: '+Object.keys(cats).slice(0,5).join(', ')+'\nBrands: '+Array.from(brands).slice(0,6).join(', ')+'\n\nStart with "1." directly. Each point on new line. Use **bold** for key terms.\n1. Dominant grade and pricing strategy\n2. Best category for buyer demand\n3. Which buyer type to approach first and why\n4. How to handle D3 stock to avoid dead stock';
     var res=await fetch('/api/gemini',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt:prompt})});
     if(res.ok){var d=await res.json();var raw=d&&d.text?d.text:'';if(raw){aiNotes=fmtAI(raw);aiOk=true;}}
@@ -706,8 +706,8 @@ function drawInsights(){
   document.getElementById('kv').textContent='Rs '+(d.totalVal/100000).toFixed(2)+'L';
   var saleEl = document.getElementById('kv-sale');
   if(saleEl){
-    if(d.effectiveMargin){
-      saleEl.textContent='Sale value: Rs '+(d.totalSaleVal/100000).toFixed(2)+'L ('+d.effectiveMargin.toFixed(1)+'% margin)';
+    if(d.marginPct){
+      saleEl.textContent='Sale value: Rs '+(d.totalSaleVal/100000).toFixed(2)+'L ('+d.marginPct+'% margin)';
     } else {
       saleEl.textContent='Set margin above to see sale value';
     }
@@ -751,7 +751,7 @@ async function doRec(){
   var lotTotalPurch = lots.reduce(function(s,l){return s+l.val;},0);
   var lotTotalSale = lots.reduce(function(s,l){return s+l.saleVal;},0);
   var lotSummary = lots.length+' lots · '+lots.reduce(function(s,l){return s+l.units;},0)+' units · Purchase: Rs '+lotTotalPurch.toLocaleString('en-IN');
-  if(inv.effectiveMargin) lotSummary += ' · Sale: Rs '+lotTotalSale.toLocaleString('en-IN')+' ('+inv.effectiveMargin.toFixed(1)+'% margin)';
+  if(inv.marginPct) lotSummary += ' · Sale: Rs '+lotTotalSale.toLocaleString('en-IN')+' ('+inv.marginPct+'% margin)';
   document.getElementById('lwrap').innerHTML='<div style="font-size:12px;color:var(--m);margin-bottom:12px">'+lotSummary+'</div>'+
     lots.map(function(l){return '<div class="lc"><div class="lb">'+l.id+'</div><div class="li"><h4>'+l.name+'</h4><div class="lb2">→ '+l.buyer+' ('+l.fit+'% fit)</div><div class="ld">'+l.desc+'</div><div><span class="lval">Rs '+l.val.toLocaleString('en-IN')+'</span><span class="tag '+l.tc+'">'+l.tag+'</span><span style="font-size:11px;color:var(--m);margin-left:7px">'+l.units+' units</span></div></div></div>';}).join('');
   var rv=Math.round(val*.07),ru=Math.round((d.grades.D3||0)*.6),rSaleVal=Math.round(calcSale(rv));
