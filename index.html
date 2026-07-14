@@ -155,6 +155,19 @@ canvas{max-height:170px}
 .sale-badge{display:inline-block;background:var(--gl);color:var(--g);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:6px;border:1px solid #b8d4c0}
 /* UPDATED KPI */
 .kpi-sale{font-size:12px;color:var(--g);font-weight:600;margin-top:4px;font-family:monospace}
+/* BREAKDOWN TABLE */
+.bk-wrap{background:#fff;border:1px solid var(--b);border-radius:11px;padding:0;margin-bottom:16px;box-shadow:var(--sh);overflow:hidden}
+.bk-wrap h4{font-size:12px;font-weight:700;color:var(--t);padding:12px 16px 8px;border-bottom:1px solid var(--b);margin:0}
+.bk-table{width:100%;border-collapse:collapse;font-size:12px}
+.bk-table th{background:var(--s2);padding:8px 12px;text-align:left;font-size:10px;font-weight:700;color:var(--m);text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--b)}
+.bk-table th.right,.bk-table td.right{text-align:right}
+.bk-table td{padding:8px 12px;border-bottom:1px solid var(--s2);vertical-align:middle}
+.bk-table tr:last-child td{border-bottom:none}
+.bk-table tr:hover td{background:var(--s2)}
+.bk-table tr.subtotal td{background:var(--gl);font-weight:600;color:var(--g)}
+.bk-table tr.total-row td{background:var(--g);color:#fff;font-weight:700}
+.grade-pip{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.pip-d1{background:#1a7a3c}.pip-d2{background:#d4a017}.pip-d3{background:#c0392b}
 /* TOAST */
 #toast{position:fixed;bottom:20px;right:20px;background:#1a2e1a;color:#fff;font-size:13px;font-weight:500;padding:11px 16px;border-radius:10px;z-index:400;display:none;box-shadow:0 4px 20px rgba(0,0,0,.2)}
 #toast.on{display:block}
@@ -246,14 +259,21 @@ canvas{max-height:170px}
         <div class="aib">🤖 Gemini AI · Smart Notes</div>
         <p id="ainotes">Analysing your inventory...</p>
       </div>
+      <div class="slabel">Category &amp; grade breakdown</div>
+      <div class="bk-wrap">
+        <h4>Units · Purchase value · Sale value — by category and grade</h4>
+        <div id="bk-table-wrap"><table class="bk-table"><thead><tr><th>Category</th><th>Grade</th><th class="right">Units</th><th class="right">Purchase value</th><th class="right">Sale value</th><th class="right">Margin</th></tr></thead><tbody id="bk-tbody"><tr><td colspan="6" style="text-align:center;color:var(--m);padding:16px">Upload inventory to see breakdown</td></tr></tbody></table></div>
+      </div>
+
       <div class="slabel">Set margin &amp; sale price</div>
       <div class="margin-wrap">
         <h4>Margin percentage</h4>
-        <div class="margin-sub">Select or enter your target margin. An additional 0.8% is applied automatically.</div>
+        <div class="margin-sub">Select or enter your target margin.</div>
         <div class="margin-btns">
           <button class="mb" onclick="setMargin(1,this)">1%</button>
           <button class="mb" onclick="setMargin(3,this)">3%</button>
           <button class="mb" onclick="setMargin(5,this)">5%</button>
+          <button class="mb" id="mb-8" onclick="setMargin(8,this)">8%</button>
           <button class="mb" onclick="setMargin(10,this)">10%</button>
           <input class="mb-manual" type="number" id="margin-manual" placeholder="Manual %" min="0" max="100" step="0.1" oninput="setMarginManual(this.value)" onfocus="clearMarginBtns()">
         </div>
@@ -317,8 +337,8 @@ const BUYER_SHEET = '11gdnjtl6ecBUFsWWa7w2kwhMBfLVy-j0EukW9CJUjzQ';
 const LOG_SHEET = '1IOAeHSMswWFfY1Z99ji5HxBhPOUlzTuor_mtZ10TDF4';
 
 let user=null, inv=null, buyers=[], mode='lot', logs=[];
-let marginPct = 0;      // user-selected margin %
-let effectiveMargin = 0; // margin + 0.8%
+let marginPct = 8;       // default margin 8%
+let effectiveMargin = 8.8; // default effective margin (8 + 0.8)
 let ic=parseInt(localStorage.getItem('rcy_ic')||'0');
 let gCh=null, cCh=null;
 
@@ -330,14 +350,16 @@ function setMargin(pct, btn){
   if(btn) btn.classList.add('on');
   document.getElementById('margin-manual').value = '';
   showMarginResult();
+  updateSaleDisplay(); // live update KPIs and breakdown
 }
 function setMarginManual(val){
   var v = parseFloat(val);
-  if(isNaN(v)||v<0){marginPct=0;effectiveMargin=0;document.getElementById('margin-result').classList.remove('show');return;}
+  if(isNaN(v)||v<0){marginPct=0;effectiveMargin=0;document.getElementById('margin-result').classList.remove('show');updateSaleDisplay();return;}
   marginPct = v;
   effectiveMargin = v + 0.8;
   clearMarginBtns();
   showMarginResult();
+  updateSaleDisplay(); // live update KPIs and breakdown
 }
 function clearMarginBtns(){
   document.querySelectorAll('.mb').forEach(function(b){b.classList.remove('on');});
@@ -346,8 +368,36 @@ function showMarginResult(){
   var el = document.getElementById('margin-result');
   if(!effectiveMargin){el.classList.remove('show');return;}
   var saleMultiplier = 1 + effectiveMargin/100;
-  el.innerHTML = 'Effective margin: <b>'+effectiveMargin.toFixed(2)+'%</b> ('+marginPct+'% + 0.8% auto) &nbsp;|&nbsp; Sale price = Purchase price × <b>'+saleMultiplier.toFixed(4)+'</b>';
+  el.innerHTML = 'Effective margin: <b>'+effectiveMargin.toFixed(2)+'%</b> &nbsp;|&nbsp; Sale price = Purchase price × <b>'+saleMultiplier.toFixed(4)+'</b>';
   el.classList.add('show');
+}
+function updateSaleDisplay(){
+  // Live-update KPI sale value without re-running full analysis
+  if(!inv) return;
+  inv.effectiveMargin = effectiveMargin;
+  inv.marginPct = marginPct;
+  inv.totalSaleVal = Math.round(calcSale(inv.totalVal));
+  // Update KPI card
+  var saleEl = document.getElementById('kv-sale');
+  if(saleEl){
+    if(effectiveMargin){
+      saleEl.textContent = 'Sale value: Rs '+(inv.totalSaleVal/100000).toFixed(2)+'L ('+effectiveMargin.toFixed(1)+'% margin)';
+    } else {
+      saleEl.textContent = '';
+    }
+  }
+  // Update breakdown table
+  drawBreakdownTable();
+  // Auto-apply default 8% margin and highlight the button
+  setTimeout(function(){
+    var btn8 = document.getElementById('mb-8');
+    if(btn8 && marginPct===8){
+      clearMarginBtns();
+      btn8.classList.add('on');
+      showMarginResult();
+      updateSaleDisplay();
+    }
+  }, 50);
 }
 function calcSale(purchasePrice){
   if(!effectiveMargin) return purchasePrice; // no margin set → use purchase price
@@ -357,6 +407,111 @@ function fmtINR(val){
   if(val>=100000) return 'Rs '+(val/100000).toFixed(2)+'L';
   if(val>=1000) return 'Rs '+(val/1000).toFixed(1)+'K';
   return 'Rs '+Math.round(val);
+}
+
+function drawBreakdownTable(){
+  if(!inv) return;
+  var rows = inv.rows || [];
+  if(!rows.length) return;
+
+  // Build category x grade matrix from raw rows
+  var matrix = {}; // matrix[cat][grade] = {units, purchVal}
+  var catTotals = {};
+  var grandUnits=0, grandPurch=0;
+
+  // Detect columns (same logic as processInventory)
+  var GC=['After PDI - Grade Type','Grade Type - Pre PDI','Grade Type','Grade','grade','Condition','Quality'];
+  var VC=['Value After Discount / Purchase price','Total Purchase price','Total Purchase Price','Total Price','Net Value','Total Amount','Purchase Value'];
+  var QC=['Quantity/Units','Quantity','Units','Qty','Count','Pieces'];
+  var CC=['Category L1','Category','Product Category','Type'];
+
+  function pickCol(row, exactCols){
+    for(var i=0;i<exactCols.length;i++){
+      var col=exactCols[i];
+      if(row[col]!=null){var v=String(row[col]).replace(/[₹,\s]/g,'').trim();if(v&&v!=='nan'&&v!=='0')return String(row[col]).trim();}
+    }
+    return '';
+  }
+  function ng(raw){
+    var v=String(raw||'').trim().toUpperCase().replace(/\s+/g,'');
+    if(!v||v==='-'||v==='NA')return 'D3';
+    var B=['D1','BD1','A','GRADEA','GRADE1','P1','PREMIUM','EXCELLENT','NEW','GOOD','WORKING'];
+    var M=['D2','BD2','B','GRADEB','GRADE2','P2','STANDARD','FAIR','USED','AVERAGE'];
+    if(B.some(function(x){return v===x||v.endsWith(x)||v.startsWith(x);}))return 'D1';
+    if(M.some(function(x){return v===x||v.endsWith(x)||v.startsWith(x);}))return 'D2';
+    var nm=v.match(/(\d)$/);if(nm){var d=parseInt(nm[1]);return d===1?'D1':d===2?'D2':'D3';}
+    return 'D3';
+  }
+  function num(v){var p=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(p)?0:p;}
+
+  rows.forEach(function(r){
+    var cat = pickCol(r,CC)||'Other';
+    var g   = ng(pickCol(r,GC));
+    var q   = Math.round(num(pickCol(r,QC)))||1;
+    var val = num(pickCol(r,VC));
+    if(!val){
+      // try unit × qty fallback
+      var UC=['Value After Discount / Purchase price','Purchase Price / Unit','Unit Price','Rate'];
+      var uv=num(pickCol(r,UC));if(uv)val=uv*q;
+    }
+    if(!matrix[cat]) matrix[cat]={};
+    if(!matrix[cat][g]) matrix[cat][g]={units:0,purchVal:0};
+    matrix[cat][g].units+=q;
+    matrix[cat][g].purchVal+=val;
+    if(!catTotals[cat]) catTotals[cat]={units:0,purchVal:0};
+    catTotals[cat].units+=q;
+    catTotals[cat].purchVal+=val;
+    grandUnits+=q; grandPurch+=val;
+  });
+
+  var grades=['D1','D2','D3'];
+  var gradeColors={'D1':'pip-d1','D2':'pip-d2','D3':'pip-d3'};
+  var html='';
+  var cats = Object.keys(matrix).sort();
+
+  cats.forEach(function(cat){
+    var catData=matrix[cat];
+    var catRows=0;
+    grades.forEach(function(g){
+      if(catData[g]&&catData[g].units>0){
+        var u=catData[g].units;
+        var pv=catData[g].purchVal;
+        var sv=Math.round(calcSale(pv));
+        var margin=effectiveMargin?effectiveMargin.toFixed(1)+'%':'—';
+        html+='<tr>';
+        html+='<td style="color:var(--m);font-size:11px">'+cat+'</td>';
+        html+='<td><span class="grade-pip '+gradeColors[g]+'"></span>'+g+'</td>';
+        html+='<td class="right">'+u.toLocaleString('en-IN')+'</td>';
+        html+='<td class="right">Rs '+Math.round(pv).toLocaleString('en-IN')+'</td>';
+        html+='<td class="right" style="color:var(--g);font-weight:600">Rs '+sv.toLocaleString('en-IN')+'</td>';
+        html+='<td class="right">'+margin+'</td>';
+        html+='</tr>';
+        catRows++;
+      }
+    });
+    // Category subtotal
+    var ct=catTotals[cat];
+    var ctSale=Math.round(calcSale(ct.purchVal));
+    html+='<tr class="subtotal">';
+    html+='<td colspan="2"><b>'+cat+' total</b></td>';
+    html+='<td class="right"><b>'+ct.units.toLocaleString('en-IN')+'</b></td>';
+    html+='<td class="right"><b>Rs '+Math.round(ct.purchVal).toLocaleString('en-IN')+'</b></td>';
+    html+='<td class="right"><b>Rs '+ctSale.toLocaleString('en-IN')+'</b></td>';
+    html+='<td class="right">'+( effectiveMargin?effectiveMargin.toFixed(1)+'%':'—')+'</td>';
+    html+='</tr>';
+  });
+
+  // Grand total row
+  var grandSale=Math.round(calcSale(grandPurch));
+  html+='<tr class="total-row">';
+  html+='<td colspan="2"><b>GRAND TOTAL</b></td>';
+  html+='<td class="right"><b>'+grandUnits.toLocaleString('en-IN')+'</b></td>';
+  html+='<td class="right"><b>Rs '+Math.round(grandPurch).toLocaleString('en-IN')+'</b></td>';
+  html+='<td class="right"><b>Rs '+grandSale.toLocaleString('en-IN')+'</b></td>';
+  html+='<td class="right">'+(effectiveMargin?effectiveMargin.toFixed(1)+'%':'—')+'</td>';
+  html+='</tr>';
+
+  document.getElementById('bk-tbody').innerHTML=html;
 }
 
 // AUTH
@@ -568,6 +723,17 @@ function drawInsights(){
   gCh=new Chart(document.getElementById('gc'),{type:'doughnut',data:{labels:['D1 Premium','D2 Mid','D3 Low'],datasets:[{data:[d.gA,d.gB,d.gC],backgroundColor:['#1a7a3c','#d4a017','#c0392b'],borderWidth:0,hoverOffset:4}]},options:{plugins:{legend:{position:'bottom',labels:{color:'#6b8068',font:{size:11}}}},cutout:'65%'}});
   var cl=Object.keys(d.cats),cv=Object.values(d.cats);
   cCh=new Chart(document.getElementById('ccc'),{type:'bar',data:{labels:cl,datasets:[{data:cv,backgroundColor:['#1a7a3c','#2196f3','#d4a017','#e91e63','#9c27b0'].slice(0,cl.length),borderRadius:6,borderSkipped:false}]},options:{plugins:{legend:{display:false}},scales:{x:{ticks:{color:'#6b8068'},grid:{display:false}},y:{ticks:{color:'#6b8068'},grid:{color:'#f0f4f0'}}}}});
+  drawBreakdownTable();
+  // Auto-apply default 8% margin and highlight the button
+  setTimeout(function(){
+    var btn8 = document.getElementById('mb-8');
+    if(btn8 && marginPct===8){
+      clearMarginBtns();
+      btn8.classList.add('on');
+      showMarginResult();
+      updateSaleDisplay();
+    }
+  }, 50);
 }
 function setMode(m){mode=m;document.getElementById('m-lot').classList.toggle('on',m==='lot');document.getElementById('m-buyer').classList.toggle('on',m==='buyer');}
 
