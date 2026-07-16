@@ -155,6 +155,15 @@ canvas{max-height:170px}
 .sale-badge{display:inline-block;background:var(--gl);color:var(--g);font-size:10px;font-weight:600;padding:2px 8px;border-radius:10px;margin-left:6px;border:1px solid #b8d4c0}
 /* UPDATED KPI */
 .kpi-sale{font-size:12px;color:var(--g);font-weight:600;margin-top:4px;font-family:monospace}
+/* LOT SIZE SELECTOR */
+.lot-size-wrap{background:#fff;border:1px solid var(--b);border-radius:11px;padding:16px 18px;margin-bottom:16px;box-shadow:var(--sh)}
+.lot-size-wrap h4{font-size:12px;font-weight:700;color:var(--t);margin-bottom:4px}
+.lot-size-sub{font-size:11px;color:var(--m);margin-bottom:12px}
+.lot-size-btns{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.lsb{padding:8px 18px;border-radius:8px;font-size:13px;font-weight:700;cursor:pointer;border:1.5px solid var(--b);background:#fff;color:var(--m);font-family:inherit;transition:.15s;min-width:44px;text-align:center}
+.lsb:hover{border-color:var(--g);color:var(--g);background:var(--gl)}
+.lsb.on{border-color:var(--g);color:#fff;background:var(--g)}
+
 /* BREAKDOWN TABLE */
 .bk-wrap{background:#fff;border:1px solid var(--b);border-radius:11px;padding:0;margin-bottom:16px;box-shadow:var(--sh);overflow:hidden}
 .bk-wrap h4{font-size:12px;font-weight:700;color:var(--t);padding:12px 16px 8px;border-bottom:1px solid var(--b);margin:0}
@@ -280,6 +289,19 @@ canvas{max-height:170px}
         <div class="margin-result" id="margin-result"></div>
       </div>
 
+      <div class="slabel">Number of lots to design</div>
+      <div class="lot-size-wrap">
+        <h4>Select lot count</h4>
+        <div class="lot-size-sub">How many lots should the inventory be split into? Default is 4.</div>
+        <div class="lot-size-btns">
+          <button class="lsb" onclick="setLotSize(2,this)">2</button>
+          <button class="lsb" onclick="setLotSize(3,this)">3</button>
+          <button class="lsb on" id="lsb-4" onclick="setLotSize(4,this)">4</button>
+          <button class="lsb" onclick="setLotSize(5,this)">5</button>
+          <button class="lsb" onclick="setLotSize(6,this)">6</button>
+        </div>
+      </div>
+
       <div class="slabel">Choose output mode</div>
       <div class="mrow">
         <div class="mc on" id="m-lot" onclick="setMode('lot')"><div class="mi">📦</div><h4>Lot-first</h4><p>Design lots then assign best buyers to each</p></div>
@@ -337,10 +359,18 @@ const BUYER_SHEET = '11gdnjtl6ecBUFsWWa7w2kwhMBfLVy-j0EukW9CJUjzQ';
 const LOG_SHEET = '1IOAeHSMswWFfY1Z99ji5HxBhPOUlzTuor_mtZ10TDF4';
 
 let user=null, inv=null, buyers=[], mode='lot', logs=[];
+let lotSize = 4;         // default lot count
 let marginPct = 8;       // default margin 8%
 let effectiveMargin = 8.8; // internal effective margin
 let ic=parseInt(localStorage.getItem('rcy_ic')||'0');
 let gCh=null, cCh=null;
+
+// LOT SIZE
+function setLotSize(n, btn){
+  lotSize = n;
+  document.querySelectorAll('.lsb').forEach(function(b){b.classList.remove('on');});
+  if(btn) btn.classList.add('on');
+}
 
 // MARGIN
 function setMargin(pct, btn){
@@ -749,32 +779,161 @@ async function doRec(){
   }).join('');
   var lots=buildLots(bs,d);
   var lotTotalPurch = lots.reduce(function(s,l){return s+l.val;},0);
-  var lotTotalSale = lots.reduce(function(s,l){return s+l.saleVal;},0);
-  var lotSummary = lots.length+' lots · '+lots.reduce(function(s,l){return s+l.units;},0)+' units · Purchase: Rs '+lotTotalPurch.toLocaleString('en-IN');
+  var lotTotalSale  = lots.reduce(function(s,l){return s+l.saleVal;},0);
+  var lotTotalUnits = lots.reduce(function(s,l){return s+l.units;},0);
+  var lotSummary = '<b>'+lots.length+' lots designed</b> · '+lotTotalUnits+' units allocated'
+    +' · Purchase: Rs '+lotTotalPurch.toLocaleString('en-IN');
   if(inv.marginPct) lotSummary += ' · Sale: Rs '+lotTotalSale.toLocaleString('en-IN')+' ('+inv.marginPct+'% margin)';
-  document.getElementById('lwrap').innerHTML='<div style="font-size:12px;color:var(--m);margin-bottom:12px">'+lotSummary+'</div>'+
-    lots.map(function(l){return '<div class="lc"><div class="lb">'+l.id+'</div><div class="li"><h4>'+l.name+'</h4><div class="lb2">→ '+l.buyer+' ('+l.fit+'% fit)</div><div class="ld">'+l.desc+'</div><div><span class="lval">Rs '+l.val.toLocaleString('en-IN')+'</span><span class="tag '+l.tc+'">'+l.tag+'</span><span style="font-size:11px;color:var(--m);margin-left:7px">'+l.units+' units</span></div></div></div>';}).join('');
+  document.getElementById('lwrap').innerHTML='<div style="font-size:12px;color:var(--m);margin-bottom:12px;padding:8px 12px;background:var(--gl);border-radius:8px;border:1px solid #b8d4c0">'+lotSummary+'</div>'+
+    lots.map(function(l){
+    var gp='';
+    if(l.grades&&l.grades.D1>0)gp+='<span style="display:inline-block;background:#e8f5ed;color:#1a7a3c;font-size:9px;font-weight:700;padding:1px 7px;border-radius:8px;margin-right:3px">D1: '+l.grades.D1+'u</span>';
+    if(l.grades&&l.grades.D2>0)gp+='<span style="display:inline-block;background:#fff3d6;color:#d47c10;font-size:9px;font-weight:700;padding:1px 7px;border-radius:8px;margin-right:3px">D2: '+l.grades.D2+'u</span>';
+    if(l.grades&&l.grades.D3>0)gp+='<span style="display:inline-block;background:#fde8e8;color:#c0392b;font-size:9px;font-weight:700;padding:1px 7px;border-radius:8px;margin-right:3px">D3: '+l.grades.D3+'u blended</span>';
+    return '<div class="lc" style="cursor:pointer" onclick="showLotDetail(''+l.id+'')"><div class="lb">'+l.id+'</div>'
+      +'<div class="li"><h4>'+l.name+'</h4>'
+      +'<div class="lb2">&#8594; '+l.buyer+' ('+l.buyerFit+'% fit)</div>'
+      +'<div style="margin:5px 0">'+gp+'</div>'
+      +'<div class="ld">'+l.desc+'</div>'
+      +'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px">'
+      +'<span class="lval">Rs '+l.val.toLocaleString('en-IN')+'</span>'
+      +(l.saleVal&&l.saleVal!==l.val?'<span class="sale-badge">Sale: Rs '+l.saleVal.toLocaleString('en-IN')+'</span>':'')
+      +'<span class="tag '+l.tc+'">'+l.tag+'</span>'
+      +'<span style="font-size:11px;color:var(--m)">'+l.units+' units</span>'
+      +'<span style="font-size:10px;color:var(--g);margin-left:auto">&#128269; View details</span>'
+      +'</div></div></div>';
+  }).join('');
   var rv=Math.round(val*.07),ru=Math.round((d.grades.D3||0)*.6),rSaleVal=Math.round(calcSale(rv));
   document.getElementById('rwrap').innerHTML='<div class="lc res"><div class="lb">RES</div><div class="li"><h4>Unallocated Grade D3 Stock</h4><div class="lb2" style="color:var(--r)">'+ru+' units · Rs '+rv.toLocaleString('en-IN')+' at risk</div><div class="ld">Grade D3 units unplaced after primary lot allocation.</div><div><span class="lval">Rs '+rv.toLocaleString('en-IN')+'</span><span class="tag tr">Needs action</span></div></div></div><div class="ro"><div class="slabel">AI suggestions</div><div class="ropt"><div class="rn">1</div><div><div class="rt">Bundle into Lot B at 15% discount</div><div class="rd">Add D3 units to '+(bs[1]&&bs[1].name||'2nd buyer')+'\'s lot. Clears all stock in one deal.</div></div></div><div class="ropt"><div class="rn">2</div><div><div class="rt">Freebie add-on to Lot A</div><div class="rd">Offer to '+(bs[0]&&bs[0].name||'top buyer')+' as goodwill if they take Lot A at full price.</div></div></div><div class="ropt"><div class="rn">3</div><div><div class="rt">Hold and re-list next cycle</div><div class="rd">Flag for next upload — match against newly onboarded buyers.</div></div></div><div style="margin-top:12px;display:flex;gap:8px"><button class="btn bg bs" onclick="toast(\'Option 1 applied\')">Apply Option 1</button><button class="btn bo bs">Export residue report</button></div></div>';
   document.getElementById('r-mode').textContent=(mode==='lot'?'Lot-first':'Buyer-first')+' · '+lots.length+' lots · '+bs.length+' buyers';
+  inv.lots = lots; // store for side panel (Phase 3)
   addLog(user.email,'Recommendations',inv.invId,mode+' · '+lots.length+' lots · '+bs.length+' buyers');
   document.getElementById('nt-results').classList.remove('off');
   go('results');
 }
 
-function buildLots(buyers,invData){
-  var d1=invData.grades.D1||0,d2=invData.grades.D2||0,d3=invData.grades.D3||0;
-  var tv=invData.totalVal,tu=invData.totalUnits,cats=Object.keys(invData.cats),n=buyers.length;
-  return buyers.map(function(b,i){
-    var lbl=String.fromCharCode(65+i),d1a,d2a,d3a,name,tag,tc;
-    if(i===0){d1a=Math.round(d1*.55);d2a=Math.round(d2*.20);d3a=Math.round(d3*.05);name='Premium '+(cats[0]||'E-Waste')+' Lot';tag='Prime';tc='tg';}
-    else if(i===n-1&&n>2){d1a=Math.round(d1*.05);d2a=Math.round(d2*.15);d3a=Math.round(d3*.40);name='Clearance Mix Lot';tag='Clearance';tc='ta';}
-    else{var sh=1/Math.max(n-1,1);d1a=Math.round(d1*.40*sh);d2a=Math.round(d2*.65*sh);d3a=Math.round(d3*.50*sh);name=(cats[i]||cats[0]||'Volume')+' Lot';tag='Volume';tc='ta';}
-    var units=d1a+d2a+d3a,val=tu>0?Math.round((units/tu)*tv):0;
-    var parts=[];if(d1a>0)parts.push('D1:'+d1a+'u');if(d2a>0)parts.push('D2:'+d2a+'u');if(d3a>0)parts.push('D3:'+d3a+'u blended');
-    var saleVal=Math.round(calcSale(val));
-    return{id:'LOT '+lbl,name:name,buyer:b.name,fit:b.fit,desc:parts.join(' + ')+' → '+b.name,val:val,saleVal:saleVal,units:units,tc:tc,tag:tag};
+function buildLots(buyers, invData){
+  // Phase 2: Category x Grade combination lot design
+  var rows = invData.rows || [];
+  var tv = invData.totalVal;
+  var n = lotSize;
+
+  // Step 1: Build segments — each unique category+grade = one segment
+  var segMap = {};
+  var GC=['After PDI - Grade Type','Grade Type - Pre PDI','Grade Type','Grade','grade','Condition','Quality'];
+  var VC=['Value After Discount / Purchase price','Total Purchase price','Total Purchase Price','Total Price','Net Value','Total Amount','Purchase Value'];
+  var QC=['Quantity/Units','Quantity','Units','Qty','Count','Pieces'];
+  var CC=['Category L1','Category','Product Category','Type'];
+
+  function pickC(row,cols){
+    for(var i=0;i<cols.length;i++){
+      var col=cols[i];
+      if(row[col]!=null){var v=String(row[col]).replace(/[\u20b9,\s]/g,'').trim();if(v&&v!=='nan'&&v!=='0')return String(row[col]).trim();}
+    }
+    return '';
+  }
+  function ngL(raw){
+    var v=String(raw||'').trim().toUpperCase().replace(/\s+/g,'');
+    if(!v||v==='-'||v==='NA')return 'D3';
+    var B=['D1','BD1','A','GRADEA','GRADE1','P1','PREMIUM','EXCELLENT','NEW','GOOD','WORKING'];
+    var M=['D2','BD2','B','GRADEB','GRADE2','P2','STANDARD','FAIR','USED','AVERAGE'];
+    if(B.some(function(x){return v===x||v.endsWith(x)||v.startsWith(x);}))return 'D1';
+    if(M.some(function(x){return v===x||v.endsWith(x)||v.startsWith(x);}))return 'D2';
+    var nm=v.match(/(\d)$/);if(nm){var d=parseInt(nm[1]);return d===1?'D1':d===2?'D2':'D3';}
+    return 'D3';
+  }
+  function numL(v){var p=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(p)?0:p;}
+
+  rows.forEach(function(r){
+    var cat = pickC(r,CC)||'Other';
+    var g   = ngL(pickC(r,GC));
+    var q   = Math.round(numL(pickC(r,QC)))||1;
+    var val = numL(pickC(r,VC));
+    if(!val){var uv=numL(pickC(r,['Value After Discount / Purchase price','Purchase Price / Unit','Unit Price','Rate']));if(uv)val=uv*q;}
+    var key = cat+'||'+g;
+    if(!segMap[key]) segMap[key]={cat:cat,grade:g,units:0,purchVal:0,rowList:[]};
+    segMap[key].units+=q;
+    segMap[key].purchVal+=val;
+    segMap[key].rowList.push(r);
   });
+
+  // Step 2: Sort segments — D1 first, then D2, then D3; by purchase value desc within grade
+  var gradeOrder={D1:0,D2:1,D3:2};
+  var segs = Object.values(segMap).sort(function(a,b){
+    var go = gradeOrder[a.grade]-gradeOrder[b.grade];
+    return go!==0?go:b.purchVal-a.purchVal;
+  });
+
+  // Step 3: Initialise n lots
+  var lots = [];
+  for(var i=0;i<n;i++){
+    lots.push({
+      id:'LOT '+String.fromCharCode(65+i),
+      segs:[], units:0, purchVal:0,
+      grades:{D1:0,D2:0,D3:0}
+    });
+  }
+
+  // Step 4: Assign non-D3 segments to least-loaded lot (balance by value)
+  var nonD3 = segs.filter(function(s){return s.grade!=='D3';});
+  var d3segs = segs.filter(function(s){return s.grade==='D3';});
+
+  nonD3.forEach(function(seg){
+    var minLot = lots.reduce(function(min,lot){return lot.purchVal<min.purchVal?lot:min;}, lots[0]);
+    minLot.segs.push(seg);
+    minLot.units += seg.units;
+    minLot.purchVal += seg.purchVal;
+    minLot.grades[seg.grade] = (minLot.grades[seg.grade]||0)+seg.units;
+  });
+
+  // Step 5: Distribute D3 proportionally across all lots (dilute bad grade)
+  d3segs.forEach(function(seg){
+    var perLot = Math.floor(seg.units/n);
+    var perVal = Math.floor(seg.purchVal/n);
+    lots.forEach(function(lot,idx){
+      var u = idx===n-1 ? seg.units-(perLot*(n-1)) : perLot;
+      var v = idx===n-1 ? seg.purchVal-(perVal*(n-1)) : perVal;
+      if(u>0){
+        lot.segs.push({cat:seg.cat,grade:'D3',units:u,purchVal:v,rowList:seg.rowList.slice(0,u),isBlended:true});
+        lot.units+=u;
+        lot.purchVal+=v;
+        lot.grades.D3=(lot.grades.D3||0)+u;
+      }
+    });
+  });
+
+  // Step 6: Name, tag, assign buyers and compute values
+  lots.forEach(function(lot,i){
+    var dom = lot.segs.filter(function(s){return !s.isBlended;})
+                      .sort(function(a,b){return b.purchVal-a.purchVal;})[0];
+    var hasD3 = (lot.grades.D3||0)>0;
+    lot.name = dom ? dom.cat+' - '+dom.grade+(hasD3?' (incl. D3)':'') : 'Mixed Lot';
+    if(i===0){lot.tag='Prime';lot.tc='tg';}
+    else if(i===n-1&&n>2){lot.tag='Clearance';lot.tc='ta';}
+    else{lot.tag='Volume';lot.tc='ta';}
+    var buyer = buyers[i%buyers.length];
+    lot.buyer = buyer?buyer.name:'—';
+    lot.buyerFit = buyer?buyer.fit:0;
+    lot.val = Math.round(lot.purchVal);
+    lot.saleVal = Math.round(calcSale(lot.purchVal));
+    // Description: top segments
+    var parts = lot.segs.filter(function(s){return !s.isBlended;})
+      .sort(function(a,b){return b.units-a.units;}).slice(0,3)
+      .map(function(s){return s.grade+' '+s.cat+' ('+s.units+'u)';});
+    if(hasD3) parts.push('D3 blended ('+lot.grades.D3+'u)');
+    lot.desc = parts.join(' + ');
+  });
+
+  return lots.filter(function(l){return l.units>0;});
+}
+
+function showLotDetail(lotId){
+  // Phase 3 will build the full side panel
+  // For now show a toast confirming click works
+  if(!inv||!inv.lots) return;
+  var lot = inv.lots.filter(function(l){return l.id===lotId;})[0];
+  if(!lot) return;
+  toast('Lot detail panel coming in Phase 3 — '+lot.id+': '+lot.units+' units · Rs '+lot.val.toLocaleString('en-IN'));
 }
 
 function scoreBuyers(list,ctx){
