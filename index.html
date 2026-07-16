@@ -790,18 +790,23 @@ async function doRec(){
     if(l.grades&&l.grades.D1>0)gp+='<span style="display:inline-block;background:#e8f5ed;color:#1a7a3c;font-size:9px;font-weight:700;padding:1px 7px;border-radius:8px;margin-right:3px">D1: '+l.grades.D1+'u</span>';
     if(l.grades&&l.grades.D2>0)gp+='<span style="display:inline-block;background:#fff3d6;color:#d47c10;font-size:9px;font-weight:700;padding:1px 7px;border-radius:8px;margin-right:3px">D2: '+l.grades.D2+'u</span>';
     if(l.grades&&l.grades.D3>0)gp+='<span style="display:inline-block;background:#fde8e8;color:#c0392b;font-size:9px;font-weight:700;padding:1px 7px;border-radius:8px;margin-right:3px">D3: '+l.grades.D3+'u blended</span>';
-    return '<div class="lc" style="cursor:pointer" onclick="showLotDetail(''+l.id+'')"><div class="lb">'+l.id+'</div>'
-      +'<div class="li"><h4>'+l.name+'</h4>'
-      +'<div class="lb2">&#8594; '+l.buyer+' ('+l.buyerFit+'% fit)</div>'
-      +'<div style="margin:5px 0">'+gp+'</div>'
-      +'<div class="ld">'+l.desc+'</div>'
-      +'<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px">'
-      +'<span class="lval">Rs '+l.val.toLocaleString('en-IN')+'</span>'
-      +(l.saleVal&&l.saleVal!==l.val?'<span class="sale-badge">Sale: Rs '+l.saleVal.toLocaleString('en-IN')+'</span>':'')
-      +'<span class="tag '+l.tc+'">'+l.tag+'</span>'
-      +'<span style="font-size:11px;color:var(--m)">'+l.units+' units</span>'
-      +'<span style="font-size:10px;color:var(--g);margin-left:auto">&#128269; View details</span>'
-      +'</div></div></div>';
+    var saleSpan = (l.saleVal&&l.saleVal!==l.val)?'<span class="sale-badge">Sale: Rs '+l.saleVal.toLocaleString('en-IN')+'</span>':'';
+    return [
+      '<div class="lc lot-clickable" data-lot="'+l.id+'">',
+      '<div class="lb">'+l.id+'</div>',
+      '<div class="li">',
+      '<h4>'+l.name+'</h4>',
+      '<div class="lb2">&#8594; '+l.buyer+' ('+l.buyerFit+'% fit)</div>',
+      '<div style="margin:5px 0">'+gp+'</div>',
+      '<div class="ld">'+l.desc+'</div>',
+      '<div style="display:flex;align-items:center;flex-wrap:wrap;gap:6px;margin-top:6px">',
+      '<span class="lval">Rs '+l.val.toLocaleString('en-IN')+'</span>',
+      saleSpan,
+      '<span class="tag '+l.tc+'">'+l.tag+'</span>',
+      '<span style="font-size:11px;color:var(--m)">'+l.units+' units</span>',
+      '<span style="font-size:10px;color:var(--g);margin-left:auto">&#128269; View details</span>',
+      '</div></div></div>'
+    ].join('');
   }).join('');
   var rv=Math.round(val*.07),ru=Math.round((d.grades.D3||0)*.6),rSaleVal=Math.round(calcSale(rv));
   document.getElementById('rwrap').innerHTML='<div class="lc res"><div class="lb">RES</div><div class="li"><h4>Unallocated Grade D3 Stock</h4><div class="lb2" style="color:var(--r)">'+ru+' units &middot; Rs '+rv.toLocaleString('en-IN')+' at risk</div><div class="ld">Grade D3 units unplaced after primary lot allocation.</div><div><span class="lval">Rs '+rv.toLocaleString('en-IN')+'</span><span class="tag tr">Needs action</span></div></div></div><div class="ro"><div class="slabel">AI suggestions</div><div class="ropt"><div class="rn">1</div><div><div class="rt">Bundle into Lot B at 15% discount</div><div class="rd">Add D3 units to '+(bs[1]&&bs[1].name||'2nd buyer')+'\'s lot. Clears all stock in one deal.</div></div></div><div class="ropt"><div class="rn">2</div><div><div class="rt">Freebie add-on to Lot A</div><div class="rd">Offer to '+(bs[0]&&bs[0].name||'top buyer')+' as goodwill if they take Lot A at full price.</div></div></div><div class="ropt"><div class="rn">3</div><div><div class="rt">Hold and re-list next cycle</div><div class="rd">Flag for next upload &mdash; match against newly onboarded buyers.</div></div></div><div style="margin-top:12px;display:flex;gap:8px"><button class="btn bg bs" onclick="toast(\'Option 1 applied\')">Apply Option 1</button><button class="btn bo bs">Export residue report</button></div></div>';
@@ -928,13 +933,17 @@ function buildLots(buyers, invData){
 }
 
 function showLotDetail(lotId){
-  // Phase 3 will build the full side panel
-  // For now show a toast confirming click works
   if(!inv||!inv.lots) return;
   var lot = inv.lots.filter(function(l){return l.id===lotId;})[0];
   if(!lot) return;
-  toast('Lot detail panel coming in Phase 3 &mdash; '+lot.id+': '+lot.units+' units &middot; Rs '+lot.val.toLocaleString('en-IN'));
+  toast('Lot '+lot.id+': '+lot.units+' units - Purchase: Rs '+lot.val.toLocaleString('en-IN')+(lot.saleVal&&lot.saleVal!==lot.val?' - Sale: Rs '+lot.saleVal.toLocaleString('en-IN'):''));
 }
+
+// Event delegation for lot card clicks
+document.addEventListener('click', function(e){
+  var el = e.target.closest('.lot-clickable');
+  if(el){ showLotDetail(el.getAttribute('data-lot')); }
+});
 
 function scoreBuyers(list,ctx){
   function p(b,keys){for(var i=0;i<keys.length;i++){var v=b[keys[i]];if(v!=null&&String(v).trim()&&String(v).trim()!=='nan')return String(v).trim();}return '';}
