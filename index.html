@@ -177,6 +177,33 @@ canvas{max-height:170px}
 .bk-table tr.total-row td{background:var(--g);color:#fff;font-weight:700}
 .grade-pip{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
 .pip-d1{background:#1a7a3c}.pip-d2{background:#d4a017}.pip-d3{background:#c0392b}
+/* SIDE PANEL */
+#side-panel{position:fixed;top:0;right:-520px;width:520px;height:100vh;background:#fff;box-shadow:-4px 0 24px rgba(0,0,0,.15);z-index:500;transition:right .3s ease;display:flex;flex-direction:column;overflow:hidden}
+#side-panel.open{right:0}
+#panel-overlay{position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:499;display:none}
+#panel-overlay.show{display:block}
+#panel-header{background:var(--g);color:#fff;padding:16px 20px;flex-shrink:0}
+#panel-header h3{font-size:15px;font-weight:700;margin-bottom:2px}
+#panel-header p{font-size:12px;color:rgba(255,255,255,.75)}
+.panel-header-row{display:flex;align-items:flex-start;justify-content:space-between}
+.panel-close{background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;cursor:pointer;font-size:16px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.panel-close:hover{background:rgba(255,255,255,.35)}
+.panel-stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;padding:12px 20px;background:var(--gl);border-bottom:1px solid #b8d4c0;flex-shrink:0}
+.ps-box{text-align:center}
+.ps-val{font-size:14px;font-weight:800;color:var(--g)}
+.ps-lbl{font-size:10px;color:var(--m);margin-top:1px}
+.panel-actions{display:flex;gap:8px;padding:12px 20px;border-bottom:1px solid var(--b);flex-shrink:0}
+.panel-body{flex:1;overflow-y:auto;padding:0}
+.pt{width:100%;border-collapse:collapse;font-size:12px}
+.pt th{background:var(--s2);padding:9px 12px;text-align:left;font-size:10px;font-weight:700;color:var(--m);text-transform:uppercase;letter-spacing:.4px;border-bottom:1px solid var(--b);position:sticky;top:0}
+.pt th.r,.pt td.r{text-align:right}
+.pt td{padding:8px 12px;border-bottom:1px solid var(--s2);vertical-align:middle}
+.pt tr:hover td{background:var(--s2)}
+.gp-d1{display:inline-block;background:#e8f5ed;color:#1a7a3c;font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px}
+.gp-d2{display:inline-block;background:#fff3d6;color:#d47c10;font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px}
+.gp-d3{display:inline-block;background:#fde8e8;color:#c0392b;font-size:9px;font-weight:700;padding:1px 6px;border-radius:6px}
+.panel-empty{text-align:center;padding:40px 20px;color:var(--m);font-size:13px}
+
 /* TOAST */
 #toast{position:fixed;bottom:20px;right:20px;background:#1a2e1a;color:#fff;font-size:13px;font-weight:500;padding:11px 16px;border-radius:10px;z-index:400;display:none;box-shadow:0 4px 20px rgba(0,0,0,.2)}
 #toast.on{display:block}
@@ -472,7 +499,7 @@ function drawBreakdownTable(){
     var nm=v.match(/(\d)$/);if(nm){var d=parseInt(nm[1]);return d===1?'D1':d===2?'D2':'D3';}
     return 'D3';
   }
-  function num(v){var p=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(p)?0:p;}
+  function num(v){var p=parseFloat(String(v).replace(/[^0-9.]/g,''));return isNaN(p)?0:p;}
 
   rows.forEach(function(r){
     var cat = pickCol(r,CC)||'Other';
@@ -660,7 +687,7 @@ async function processInventory(csv,filename){
       var lm=v.match(/([ABC])$/);if(lm)return lm[1]==='A'?'D1':lm[1]==='B'?'D2':'D3';
       return 'D3';
     }
-    function num(v){var p=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(p)?0:p;}
+    function num(v){var p=parseFloat(String(v).replace(/[^0-9.]/g,''));return isNaN(p)?0:p;}
     rows.forEach(function(r){
       var g=ng(pick(r,GC));
       var q=Math.round(num(pick(r,QC)))||1;
@@ -847,7 +874,7 @@ function buildLots(buyers, invData){
     var nm=v.match(/(\d)$/);if(nm){var d=parseInt(nm[1]);return d===1?'D1':d===2?'D2':'D3';}
     return 'D3';
   }
-  function numL(v){var p=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(p)?0:p;}
+  function numL(v){var p=parseFloat(String(v).replace(/[^0-9.]/g,''));return isNaN(p)?0:p;}
 
   rows.forEach(function(r){
     var cat = pickC(r,CC)||'Other';
@@ -932,11 +959,201 @@ function buildLots(buyers, invData){
   return lots.filter(function(l){return l.units>0;});
 }
 
+var currentPanelLot = null;
+
 function showLotDetail(lotId){
   if(!inv||!inv.lots) return;
   var lot = inv.lots.filter(function(l){return l.id===lotId;})[0];
   if(!lot) return;
-  toast('Lot '+lot.id+': '+lot.units+' units - Purchase: Rs '+lot.val.toLocaleString('en-IN')+(lot.saleVal&&lot.saleVal!==lot.val?' - Sale: Rs '+lot.saleVal.toLocaleString('en-IN'):''));
+  currentPanelLot = lot;
+
+  // Header
+  document.getElementById('panel-title').textContent = lot.id+' - '+lot.name;
+  document.getElementById('panel-subtitle').textContent = lot.buyer+' ('+lot.buyerFit+'% fit) - '+lot.tag+' lot';
+
+  // Stats
+  var statsHtml = [
+    {val:lot.units,lbl:'Total units'},
+    {val:'Rs '+lot.val.toLocaleString('en-IN'),lbl:'Purchase value'},
+    {val:'Rs '+lot.saleVal.toLocaleString('en-IN'),lbl:'Sale value ('+inv.marginPct+'%)'}
+  ].map(function(s){
+    return '<div class="ps-box"><div class="ps-val">'+s.val+'</div><div class="ps-lbl">'+s.lbl+'</div></div>';
+  }).join('');
+  document.getElementById('panel-stats').innerHTML = statsHtml;
+
+  // Product table from lot segments
+  var rows = [];
+  lot.segs.forEach(function(seg){
+    seg.rowList && seg.rowList.forEach(function(r){
+      rows.push({seg:seg, row:r});
+    });
+  });
+
+  // If no rowList (fallback) - show segment-level data
+  if(rows.length===0){
+    lot.segs.forEach(function(seg){
+      rows.push({seg:seg, row:null});
+    });
+  }
+
+  var GC=['After PDI - Grade Type','Grade Type - Pre PDI','Grade Type','Grade','grade'];
+  var VC=['Value After Discount / Purchase price','Total Purchase price','Total Purchase Price','Total Price','Net Value','Purchase Value'];
+  var QC=['Quantity/Units','Quantity','Units','Qty'];
+  var BC=['Brand/Source Name','Brand','Source Name','Make','Manufacturer'];
+  var PC=['Product Name','Product','Item Name','Item','Description','Model'];
+  var CC=['Category L1','Category','Product Category','Type'];
+
+  function pickP(row,cols){
+    if(!row) return '';
+    for(var i=0;i<cols.length;i++){
+      var v=row[cols[i]];
+      if(v!=null&&String(v).trim()&&String(v).trim()!=='nan') return String(v).trim();
+    }
+    return '';
+  }
+  function numP(v){var p=parseFloat(String(v).replace(/[^0-9.]/g,''));return isNaN(p)?0:p;}
+
+  var tbody='';
+  var rowNum=0;
+
+  if(rows[0]&&rows[0].row){
+    // Full row-level detail
+    rows.forEach(function(item){
+      var r=item.row, seg=item.seg;
+      rowNum++;
+      var brand=pickP(r,BC)||'-';
+      var product=pickP(r,PC)||brand||seg.cat;
+      var cat=pickP(r,CC)||seg.cat;
+      var grade=pickP(r,GC)||seg.grade;
+      var gradeNorm=seg.grade;
+      var qty=Math.round(numP(pickP(r,QC)))||1;
+      var purch=numP(pickP(r,VC));
+      if(!purch){var uv=numP(pickP(r,['Value After Discount / Purchase price','Purchase Price / Unit','Unit Price','Rate']));if(uv)purch=uv*qty;}
+      var sale=Math.round(calcSale(purch));
+      var gpClass='gp-'+gradeNorm.toLowerCase();
+      tbody+='<tr>'
+        +'<td style="color:var(--m)">'+rowNum+'</td>'
+        +'<td><b>'+product+'</b>'+(brand&&brand!==product?'<br><span style="font-size:10px;color:var(--m)">'+brand+'</span>':'')+'</td>'
+        +'<td>'+cat+'</td>'
+        +'<td><span class="'+gpClass+'">'+gradeNorm+'</span></td>'
+        +'<td class="r">'+qty+'</td>'
+        +'<td class="r">'+Math.round(purch).toLocaleString('en-IN')+'</td>'
+        +'<td class="r" style="color:var(--g);font-weight:600">'+sale.toLocaleString('en-IN')+'</td>'
+        +'</tr>';
+    });
+  } else {
+    // Segment-level fallback
+    lot.segs.forEach(function(seg){
+      rowNum++;
+      var gpClass='gp-'+seg.grade.toLowerCase();
+      var sale=Math.round(calcSale(seg.purchVal));
+      tbody+='<tr>'
+        +'<td style="color:var(--m)">'+rowNum+'</td>'
+        +'<td><b>'+seg.cat+'</b>'+(seg.isBlended?'<br><span style="font-size:10px;color:#c0392b">D3 blended</span>':'')+'</td>'
+        +'<td>'+seg.cat+'</td>'
+        +'<td><span class="'+gpClass+'">'+seg.grade+'</span></td>'
+        +'<td class="r">'+seg.units+'</td>'
+        +'<td class="r">'+Math.round(seg.purchVal).toLocaleString('en-IN')+'</td>'
+        +'<td class="r" style="color:var(--g);font-weight:600">'+sale.toLocaleString('en-IN')+'</td>'
+        +'</tr>';
+    });
+  }
+
+  document.getElementById('panel-tbody').innerHTML = tbody||'<tr><td colspan="7" class="panel-empty">No product detail available</td></tr>';
+
+  // Open panel
+  document.getElementById('side-panel').classList.add('open');
+  document.getElementById('panel-overlay').classList.add('show');
+}
+
+function closePanel(){
+  document.getElementById('side-panel').classList.remove('open');
+  document.getElementById('panel-overlay').classList.remove('show');
+}
+
+function downloadLotXLSX(){
+  if(!currentPanelLot||typeof XLSX==='undefined') return;
+  var lot = currentPanelLot;
+
+  // Build data rows for XLSX
+  var data = [['#','Product / Brand','Category','Grade','Units','Purchase Price (Rs)','Sale Price (Rs)','Lot ID','Buyer','Lot Tag']];
+
+  var GC=['After PDI - Grade Type','Grade Type - Pre PDI','Grade Type','Grade','grade'];
+  var VC=['Value After Discount / Purchase price','Total Purchase price','Total Purchase Price','Total Price','Net Value','Purchase Value'];
+  var QC=['Quantity/Units','Quantity','Units','Qty'];
+  var BC=['Brand/Source Name','Brand','Source Name','Make','Manufacturer'];
+  var PC=['Product Name','Product','Item Name','Item','Description','Model'];
+  var CC=['Category L1','Category','Product Category','Type'];
+
+  function pickX(row,cols){if(!row)return '';for(var i=0;i<cols.length;i++){var v=row[cols[i]];if(v!=null&&String(v).trim()&&String(v).trim()!=='nan')return String(v).trim();}return '';}
+  function numX(v){var p=parseFloat(String(v).replace(/[^0-9.]/g,''));return isNaN(p)?0:p;}
+
+  var rowNum=0;
+  var hasRows = lot.segs.some(function(s){return s.rowList&&s.rowList.length>0;});
+
+  if(hasRows){
+    lot.segs.forEach(function(seg){
+      seg.rowList && seg.rowList.forEach(function(r){
+        rowNum++;
+        var brand=pickX(r,BC)||'-';
+        var product=pickX(r,PC)||brand||seg.cat;
+        var cat=pickX(r,CC)||seg.cat;
+        var grade=pickX(r,GC)||seg.grade;
+        var qty=Math.round(numX(pickX(r,QC)))||1;
+        var purch=numX(pickX(r,VC));
+        if(!purch){var uv=numX(pickX(r,['Value After Discount / Purchase price','Purchase Price / Unit','Unit Price','Rate']));if(uv)purch=uv*qty;}
+        var sale=Math.round(calcSale(purch));
+        data.push([rowNum,product+' / '+brand,cat,seg.grade,qty,Math.round(purch),sale,lot.id,lot.buyer,lot.tag]);
+      });
+    });
+  } else {
+    lot.segs.forEach(function(seg){
+      rowNum++;
+      var sale=Math.round(calcSale(seg.purchVal));
+      data.push([rowNum,seg.cat,seg.cat,seg.grade,seg.units,Math.round(seg.purchVal),sale,lot.id,lot.buyer,lot.tag]);
+    });
+  }
+
+  // Add summary row
+  data.push([]);
+  data.push(['','TOTAL','','',lot.units,lot.val,lot.saleVal,lot.id,lot.buyer,'']);
+
+  // Create workbook
+  var wb = XLSX.utils.book_new();
+  var ws = XLSX.utils.aoa_to_sheet(data);
+
+  // Column widths
+  ws['!cols'] = [
+    {wch:4},{wch:28},{wch:22},{wch:8},{wch:8},{wch:18},{wch:18},{wch:10},{wch:22},{wch:12}
+  ];
+
+  XLSX.utils.book_append_sheet(wb, ws, lot.id);
+
+  // Summary sheet
+  var summary = [
+    ['Lot ID', lot.id],
+    ['Lot Name', lot.name],
+    ['Assigned Buyer', lot.buyer],
+    ['Buyer Fit Score', lot.buyerFit+'%'],
+    ['Lot Type', lot.tag],
+    ['Total Units', lot.units],
+    ['Grade D1 Units', lot.grades&&lot.grades.D1||0],
+    ['Grade D2 Units', lot.grades&&lot.grades.D2||0],
+    ['Grade D3 Units (blended)', lot.grades&&lot.grades.D3||0],
+    ['Purchase Value (Rs)', lot.val],
+    ['Sale Value (Rs)', lot.saleVal],
+    ['Margin %', inv.marginPct||0],
+    ['Generated On', new Date().toLocaleString('en-IN')],
+    ['Inventory ID', inv.invId],
+    ['Source File', inv.filename],
+  ];
+  var ws2 = XLSX.utils.aoa_to_sheet(summary);
+  ws2['!cols'] = [{wch:28},{wch:30}];
+  XLSX.utils.book_append_sheet(wb, ws2, 'Lot Summary');
+
+  var filename = inv.invId+'_'+lot.id.replace(' ','_')+'_'+new Date().toISOString().slice(0,10)+'.xlsx';
+  XLSX.writeFile(wb, filename);
+  toast('Downloaded: '+filename);
 }
 
 // Event delegation for lot card clicks
@@ -1074,5 +1291,39 @@ function csvToObjs(csv){
   return rows.slice(1).map(function(r){var obj={};headers.forEach(function(h,i){obj[h]=(r[i]!=null?String(r[i]).trim():'');});return obj;});
 }
 </script>
+<!-- SIDE PANEL -->
+<div id="panel-overlay" onclick="closePanel()"></div>
+<div id="side-panel">
+  <div id="panel-header">
+    <div class="panel-header-row">
+      <div>
+        <h3 id="panel-title">Lot Details</h3>
+        <p id="panel-subtitle">Product list for this lot</p>
+      </div>
+      <button class="panel-close" onclick="closePanel()">&#10005;</button>
+    </div>
+  </div>
+  <div class="panel-stats" id="panel-stats"></div>
+  <div class="panel-actions">
+    <button class="btn bg bs" onclick="downloadLotXLSX()" id="panel-dl-btn">&#11015; Download XLSX</button>
+    <button class="btn bo bs" onclick="closePanel()">Close</button>
+  </div>
+  <div class="panel-body">
+    <table class="pt">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Product / Brand</th>
+          <th>Category</th>
+          <th>Grade</th>
+          <th class="r">Units</th>
+          <th class="r">Purchase Rs</th>
+          <th class="r">Sale Rs</th>
+        </tr>
+      </thead>
+      <tbody id="panel-tbody"></tbody>
+    </table>
+  </div>
+</div>
 </body>
 </html>
